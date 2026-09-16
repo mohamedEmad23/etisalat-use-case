@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-16
+goal: "Deliver the IBM Telco churn challenge: classification model + NL chat
+  pipeline + API + diagram + docs within /usr/bin/zsh-20 budget and
+  published-band eval targets"

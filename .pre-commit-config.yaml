@@ -1,0 +1,108 @@
+#
+# pre-commit configuration — etisalat-use-case (IBM Telco churn challenge)
+#
+# Tailored from the iX-Solutions monorepo template. This repo is Python-only
+# (no TS/JS, no shell, no SQL), so only Python-relevant hooks are active.
+# Driver hooks (prettier/eslint/shellcheck/shfmt) are listed as comments at the
+# bottom, activated before use. Language version pinned to 3.13 (.python-version).
+#
+# Run:   uv run pre-commit run --all-files
+# Setup: uv add --dev pre-commit && uv run pre-commit install --install-hooks
+#
+minimum_pre_commit_version: 4.5.0
+
+default_language_version:
+  python: python3.13
+
+# Non-Python/generated trees are never touched:
+#   .venv/  node_modules/  .opencode/ (agent tooling)
+#   openspec/ docs/       (markdown specs/ADRs: content reviewed manually,
+#                        not machine-formatted)
+#   data/                 (challenge CSV/PDF — binary, huge)
+exclude: ^(openspec/|docs/|data/|\.opencode/|\.venv/|node_modules/)
+
+default_stages: [pre-commit, pre-push]
+
+repos:
+  # ── Ruff: lint + format (replaces ruff/mypy/dark/flake8/isort/autoflake) ──
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # ── Mypy: static types; needs the runtime deps to resolve imports ──
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+        files: ^(src|tests)/
+        args: [--config-file=pyproject.toml, --ignore-missing-imports]
+        additional_dependencies: [
+          "polars>=1.0",
+          "scikit-learn>=1.6",
+          "fastapi>=0.115",
+          "pydantic>=2.9",
+          "pydantic-settings>=2.6",
+          "httpx>=0.28",
+          "pytest>=8.3",
+          "pandas-stubs",
+        ]
+
+  # ── Bandit: security linting (skips tests; no assert-stripping) ──
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.9.4
+    hooks:
+      - id: bandit
+        args: [--exclude, tests]
+
+  # ── Dependency vulnerability audit (network call at pre-push) ──
+  # To skip reliably (e.g. offline/CI), invoke: SKIP=pip-audit git push
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.10.1
+    hooks:
+      - id: pip-audit
+        stages: [pre-push]
+        args: ["--skip-editable"]
+
+  # ── Secret detection (no repo access needed; PII + bearer-token risk) ──
+  # Requires gitleaks binary on PATH: `brew install gitleaks` / `uv tool install gitleaks`
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # ── Generic hygiene ──
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        # Challenge CSV is ~954 KB; data/ is excluded anyway, keep budget tight
+        args: [--maxkb=800]
+      - id: check-json
+      - id: check-yaml
+      - id: check-toml
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        # Markdown uses trailing double-space line breaks; let those live
+        args: [--markdown-linebreak-ext=md]
+
+# EXCLUDED HOOKS (activate before use):
+# ── Frontend driver hooks (no JS/TS in this repo — activate when needed) ──
+#
+#  - repo: local/prettier        rbubley/mirrors-prettier rev v3.9.6
+#  - repo: local/eslint          mirrors-eslint        rev v10.9.1
+#  - repo: shellcheck-py         v0.11.0  (activate for deploy/*.sh)
+#  - repo: sqlfluff              4.3.0 postgres dialect
+#                                   (activate for future external-validation SQL)
+#
+# ── Commitizen (commit message linting, optional) ──
+# Requires a tool config (uv add --dev commitizen) — none configured yet:
+#
+#  - repo: https://github.com/commitizen-tools/commitizen
+#    rev: v4.18.0
+#    hooks:
+#      - id: commitizen
+#        stages: [commit-msg]

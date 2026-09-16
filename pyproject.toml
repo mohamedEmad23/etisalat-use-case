@@ -1,0 +1,35 @@
+[project]
+name = "etisalat-use-case"
+version = "0.1.0"
+description = "IBM Telco churn challenge: classification model + extract-only LLM chat pipeline + FastAPI (open-source only)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "polars>=1.0",
+    "scikit-learn>=1.6",
+    "lightgbm>=4.5",
+    "xgboost>=2.1",
+    "optuna>=4.0",
+    "shap>=0.46",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "httpx>=0.28",
+    "openai>=1.50",
+    "mlflow-skinny>=2.16",
+    "modal>=0.73",
+    "pytest>=8.3",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-p no:cacheprovider"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.2",
+]
