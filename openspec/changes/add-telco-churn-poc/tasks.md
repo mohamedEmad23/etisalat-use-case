@@ -9,11 +9,11 @@
 
 ## 2. Phase 1 — Data pipeline (`telco-churn/data-pipeline`)
 
-- [ ] 2.1 Implement CSV ingestion (trim header names incl. `Senior_Citizen ` trailing space, assert 7,043×21 shape, drop customerID at load); verify unit test on the real CSV
-- [ ] 2.2 Implement cleaning (Total_Charges→numeric coercion pre-split with documented 11-blank-tenure-0-row rule, categorical trimming, 0/1→bool, sentinel strings kept distinct); verify unit tests including blank-row count == 11
-- [ ] 2.3 Implement `avg_monthly` engineering (Total_Charges/tenure); verify unit test values
-- [ ] 2.4 Implement deterministic stratified 80/20 split + 5-fold stratified fold builder (seeded); verify determinism test (same seed → identical partition) and train/test churn-rate match
-- [ ] 2.5 Write `docs/data-mismatches.md` (PDF "Postal check" vs CSV "Mailed check", named-column deltas); verify document reviewed against dataset
+- [x] 2.1 Implement CSV ingestion (trim header names incl. `Senior_Citizen ` trailing space, assert 7,043×21 shape, drop customerID at load); verify unit test on the real CSV
+- [x] 2.2 Implement cleaning (Total_Charges→numeric coercion pre-split with documented 11-blank-tenure-0-row rule, categorical trimming, 0/1→bool, sentinel strings kept distinct); verify unit tests including blank-row count == 11
+- [x] 2.3 Implement `avg_monthly` engineering (Total_Charges/tenure); verify unit test values
+- [x] 2.4 Implement deterministic stratified 80/20 split + 5-fold stratified fold builder (seeded); verify determinism test (same seed → identical partition) and train/test churn-rate match
+- [x] 2.5 Write `docs/data-mismatches.md` (PDF "Postal check" vs CSV "Mailed check", named-column deltas); verify document reviewed against dataset
 
 ## 3. Phase 2 — Churn model (`telco-churn/churn-model`)
 

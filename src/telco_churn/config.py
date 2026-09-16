@@ -33,7 +33,7 @@ class AppConfig(BaseSettings):
 
     # LLM seam (D-D): one seam, backend chosen by config
     llm_backend: LlmBackend = LlmBackend.OLLAMA
-    llm_model: str = "qwen3-4b-instruct-2507"
+    llm_model: str = "qwen3:4b-instruct-2507-q4_K_M"
     llm_base_url: str = "http://localhost:11434/v1"
 
     # Model artifacts
