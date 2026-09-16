@@ -28,8 +28,8 @@ N_FOLDS = 5
 class Partition:
     """A leak-free 80/20 train/test partition — disjoint index ranges, row order preserved."""
 
-    train: pl.DataFrame
-    test: pl.DataFrame
+    train: pl.DataFrame  # 80% of the rows, stratified on Churn
+    test: pl.DataFrame  # 20% of the rows, stratified on Churn
 
 
 def stratified_split(
