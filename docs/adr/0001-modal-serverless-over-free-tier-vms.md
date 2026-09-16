@@ -5,7 +5,7 @@ date: 2026-09-16
 
 # Modal serverless over free-tier VMs for LLM serving
 
-The challenge requires serving an open-source LLM (Qwen3-4B) on a GPU we do not own, with a hard budget of $0–20 and no local GPU. We deploy the API + vLLM on **Modal Starter** (scale-to-zero, $30/month free credits ≈ 50 T4-hours, $0 platform fee) as primary, with a documented **RunPod Community RTX 3090** stopped-pod fallback (~$0.22/hr). We deliberately rejected Oracle's Always-Free ARM VM, Google Colab as a host, and Hugging Face ZeroGPU. No Kubernetes anywhere: one FastAPI container, docker-compose locally — orchestration is ceremony for a single service.
+The challenge requires serving an open-source LLM (Qwen3-4B-Instruct-2507, tag `qwen3:4b-instruct-2507-q4_K_M`) on a GPU we do not own, with a hard budget of $0–20 and no local GPU. We deploy the API + vLLM on **Modal Starter** (scale-to-zero, $30/month free credits ≈ 50 T4-hours, $0 platform fee) as primary, with a documented **RunPod Community RTX 3090** stopped-pod fallback (~$0.22/hr). We deliberately rejected Oracle's Always-Free ARM VM, Google Colab as a host, and Hugging Face ZeroGPU. No Kubernetes anywhere: one FastAPI container, docker-compose locally — orchestration is ceremony for a single service.
 
 ## Considered Options
 

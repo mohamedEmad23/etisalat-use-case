@@ -89,7 +89,7 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Prod["Modal (primary, scale-to-zero)"]
-        FA[FastAPI container] --> VLLM[vLLM container<br/>Qwen3-4B-Instruct-2507 4-bit<br/>scaledown_window ≈ 1800 s]
+        FA[FastAPI container] --> VLLM[vLLM container<br/>Qwen3-4B-Instruct-2507 4-bit<br/>tag qwen3:4b-instruct-2507-q4_K_M<br/>scaledown_window ≈ 1800 s]
     end
     subgraph Local["Local dev / CI"]
         DC[docker-compose: api + ollama] --> OLL[Ollama 4B Q4 CPU]

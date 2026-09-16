@@ -64,6 +64,13 @@ materially above trigger a leakage audit.
 
 ## Workflow
 
+- **Feature-branch cycle (user-mandated)**: one branch per OpenSpec feature,
+  named `<seq>/<feature-name>` (e.g. `p1/data-pipeline`, `p2/churn-model`,
+  `p3/chat-pipeline`, `p4/chat-api`, `p5/deployment`). Cycle: implement ONLY
+  that feature's tasks → test & verify fully → cleanup → commit & push →
+  **wait for user merge** → next branch. `tasks.md` in the change directory
+  tracks per-branch progress; a task is checked complete only after full
+  verification.
 - Spec-driven development via **OpenSpec**: change proposals/design/tasks under
   `openspec/changes/`, archived under archive when complete. Follow
   `openspec-*.md` skill instructions; plan against `openspec`, don't write
