@@ -9,3 +9,7 @@ runs/
 widgets.json
 .DS_Store
 node_modules/
+
+# MLflow local tracking store (guard-created during train_all)
+mlflow.db
+mlruns/

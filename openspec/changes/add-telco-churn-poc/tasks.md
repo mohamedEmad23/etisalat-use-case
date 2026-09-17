@@ -17,14 +17,14 @@
 
 ## 3. Phase 2 — Churn model (`telco-churn/churn-model`)
 
-- [ ] 3.1 Implement three candidate pipelines (logistic baseline, XGBoost, LightGBM) with imbalance handling inside sklearn Pipeline fitted on train folds only; verify leakage unit test
-- [ ] 3.2 Implement Optuna tuning + selection by mean 5-fold CV PR-AUC, reporting all three models; verify report artifact lists all three scores
-- [ ] 3.3 Implement operating-point selection (F1(churn)-max on train CV subject to precision ≥ 0.55); verify unit test with synthetic score curves
-- [ ] 3.4 Implement isotonic calibration fitted on train-fold predictions; verify Brier improvement on held-out validation fold
-- [ ] 3.5 Implement SHAP top-3 driver extraction per prediction; verify unit test returns exactly 3 drivers for a sample row
-- [ ] 3.6 Implement 3-seed evaluation (mean±std, published-band check AUC 0.84–0.88, above-band → leakage-audit gate, test set touched ≤ once per seed); verify eval run artifact produced
-- [ ] 3.7 Implement external validation runner (UCI Iranian Churn + Orange Telecom, minimal schema mapping, honest AUC deltas) + CTGAN sensitivity/demo-only path; verify report artifact labels synthetic use correctly
-- [ ] 3.8 Save reproducible artifact (model + calibrator + threshold + feature list + seed/config metadata) with light MLflow logging; verify artifact reload reproduces AUC within ±0.01
+- [x] 3.1 Implement three candidate pipelines (logistic baseline, XGBoost, LightGBM) with imbalance handling inside sklearn Pipeline fitted on train folds only; verify leakage unit test
+- [x] 3.2 Implement Optuna tuning + selection by mean 5-fold CV PR-AUC, reporting all three models; verify report artifact lists all three scores
+- [x] 3.3 Implement operating-point selection (F1(churn)-max on train CV subject to precision ≥ 0.55); verify unit test with synthetic score curves
+- [x] 3.4 Implement isotonic calibration fitted on train-fold predictions; verify Brier improvement on held-out validation fold
+- [x] 3.5 Implement SHAP top-3 driver extraction per prediction; verify unit test returns exactly 3 drivers for a sample row
+- [x] 3.6 Implement 3-seed evaluation (mean±std, published-band check AUC 0.84–0.88, above-band → leakage-audit gate, test set touched ≤ once per seed); verify eval run artifact produced
+- [x] 3.7 Implement external validation runner (UCI Iranian Churn + Orange Telecom, minimal schema mapping, honest AUC deltas) + CTGAN sensitivity/demo-only path; verify report artifact labels synthetic use correctly
+- [x] 3.8 Save reproducible artifact (model + calibrator + threshold + feature list + seed/config metadata) with light MLflow logging; verify artifact reload reproduces AUC within ±0.01
 
 ## 4. Phase 3 — Chat pipeline (`telco-churn/chat-pipeline`)
 
