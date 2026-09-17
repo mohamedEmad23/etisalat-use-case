@@ -28,13 +28,13 @@
 
 ## 4. Phase 3 — Chat pipeline (`telco-churn/chat-pipeline`)
 
-- [ ] 4.1 Implement Pydantic FeatureRequest schema (no numeric fields, closed feature-name enum); verify unit tests reject unknown features and numeric injection
-- [ ] 4.2 Write extraction prompt + few-shot examples; verify prompt artifact review
-- [ ] 4.3 Implement ~150-line tool loop (extract → grammar-constrained decode → validate → predict → compose response with numerics interpolated from payload); verify unit tests incl. malformed-candidate retry path
-- [ ] 4.4 Implement in-memory multi-turn session state; verify two-turn refinement accumulates features without restatement
-- [ ] 4.5 Implement PII redaction scrubber for logs; verify unit test scrubs emails/phones/customer IDs
-- [ ] 4.6 Implement out-of-scope refusal path (no fabricated prediction); verify unit test
-- [ ] 4.7 Build curated extraction eval suite (all 19 features + multi-intent + out-of-scope); verify suite runs against local Ollama with 100% schema validity and ≥95% slot accuracy, report artifact saved; on failure execute documented Qwen3-8B swap and re-run
+- [x] 4.1 Implement Pydantic FeatureRequest schema (no numeric fields, closed feature-name enum); verify unit tests reject unknown features and numeric injection
+- [x] 4.2 Write extraction prompt + few-shot examples; verify prompt artifact review
+- [x] 4.3 Implement ~150-line tool loop (extract → grammar-constrained decode → validate → predict → compose response with numerics interpolated from payload); verify unit tests incl. malformed-candidate retry path
+- [x] 4.4 Implement in-memory multi-turn session state; verify two-turn refinement accumulates features without restatement
+- [x] 4.5 Implement PII redaction scrubber for logs; verify unit test scrubs emails/phones/customer IDs
+- [x] 4.6 Implement out-of-scope refusal path (no fabricated prediction); verify unit test
+- [x] 4.7 Build curated extraction eval suite (all 19 features + multi-intent + out-of-scope); verify suite runs against local Ollama with 100% schema validity and ≥95% slot accuracy, report artifact saved; on failure execute documented Qwen3-8B swap and re-run
 
 ## 5. Phase 4 — Chat API (`telco-churn/chat-api`)
 
