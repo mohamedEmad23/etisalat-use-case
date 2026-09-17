@@ -29,6 +29,9 @@ dependencies = [
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-p no:cacheprovider"
+markers = [
+    "eval_llm: opt-in extraction eval requiring a reachable local Ollama endpoint (skips otherwise)",
+]
 
 [dependency-groups]
 dev = [
