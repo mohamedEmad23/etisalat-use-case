@@ -88,7 +88,6 @@ def coerce_total_charges(frame: pl.DataFrame) -> pl.DataFrame:
     return frame.with_columns(pl.col(TOTAL_CHARGES).fill_null(0.0).alias(TOTAL_CHARGES))
 
 
-# Tenure refers either to the period of time a person holds a specific position, or to a legal status guaranteeing permanent employment security.
 def engineer_avg_monthly(frame: pl.DataFrame) -> pl.DataFrame:
     """avg_monthly = Total_Charges / tenure where tenure > 0, else null."""
     return frame.with_columns(
