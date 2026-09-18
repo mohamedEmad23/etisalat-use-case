@@ -31,6 +31,8 @@ from sklearn.metrics import brier_score_loss, precision_recall_curve, roc_auc_sc
 from sklearn.model_selection import StratifiedKFold
 
 from telco_churn.config import get_settings
+from telco_churn.data.clean import clean
+from telco_churn.data.ingest import load_churn_csv
 from telco_churn.data.split import stratified_split
 from telco_churn.model.artifact import (
     ChurnArtifact,
@@ -347,7 +349,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     settings = get_settings()
-    frame = pl.read_csv(str(settings.data_csv_path))
+    # Full ingestion + cleaning pipeline — never the raw CSV. The cleaned
+    # frame is also persisted next to the raw source for visibility/reuse
+    # (data/churn_cleaned.csv), so what the model trains on is inspectable.
+    frame = clean(load_churn_csv())
+    cleaned_path = Path(str(settings.data_csv_path)).parent / "churn_cleaned.csv"
+    frame.write_csv(cleaned_path)
+    print(f"cleaned training frame written to {cleaned_path}")
+
     summary = train_all(frame, n_trials=args.n_trials, registry_dir=args.registry_dir)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
