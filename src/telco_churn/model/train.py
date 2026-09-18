@@ -21,7 +21,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import optuna
@@ -186,11 +186,19 @@ def fit_frame(
     # (same seeds, same sweeps); folds stay sequential inside the objective
     # so the MedianPruner can report running means and cut losing trials.
     parallel = Parallel(n_jobs=min(N_JOBS, len(MODEL_KEYS)), prefer="processes")
-    results = parallel(
-        delayed(_tune_one_candidate)(
-            model_key, X_train, y_train, seed=seed, n_splits=n_splits, n_trials=n_trials
-        )
-        for model_key in MODEL_KEYS
+    results = cast(
+        "list[tuple[str, float, dict[str, Any]]]",
+        parallel(
+            delayed(_tune_one_candidate)(
+                model_key,
+                X_train,
+                y_train,
+                seed=seed,
+                n_splits=n_splits,
+                n_trials=n_trials,
+            )
+            for model_key in MODEL_KEYS
+        ),
     )
     comparison: list[dict[str, Any]] = []
     best_key: str | None = None
