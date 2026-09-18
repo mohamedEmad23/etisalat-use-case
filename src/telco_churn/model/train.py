@@ -186,7 +186,7 @@ def fit_frame(
     # (same seeds, same sweeps); folds stay sequential inside the objective
     # so the MedianPruner can report running means and cut losing trials.
     parallel = Parallel(n_jobs=min(N_JOBS, len(MODEL_KEYS)), prefer="processes")
-    results = parallel(
+    results: list[tuple[str, float, dict[str, Any]]] = parallel(
         delayed(_tune_one_candidate)(
             model_key, X_train, y_train, seed=seed, n_splits=n_splits, n_trials=n_trials
         )
