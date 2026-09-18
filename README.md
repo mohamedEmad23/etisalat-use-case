@@ -22,7 +22,8 @@ prediction payload — the LLM never generates numbers.
 ## Quickstart (local demo stack)
 
 Prerequisites: Python 3.13 via [uv](https://docs.astral.sh/uv/), Docker (for the compose stack),
-and Ollama running locally (`ollama serve`).
+and Ollama running locally (`ollama serve` — needed only for the bare path above; the compose
+stack runs its own Ollama container).
 
 ```sh
 uv sync                                   # create .venv
@@ -38,6 +39,10 @@ Or one-command compose:
 ```sh
 docker compose -f deploy/docker-compose.yml up --build
 ```
+
+First run: a one-shot `model-init` service pulls the `qwen3:4b-instruct-2507-q4_K_M` weights
+(a multi-GB, one-time download; later runs are delta-safe no-ops), and the API service waits
+for it before serving — `up --build` alone yields a working `/chat`.
 
 Then `GET /health` is open, and every other call needs the bearer header:
 

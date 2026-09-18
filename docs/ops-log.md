@@ -50,6 +50,52 @@ if corruption persists, Troubleshoot → Clean/Purge data (images re-pull; no st
 lost). The post-fix container smoke (build → `/health` with artifact mount) is re-run after the
 daemon restart.
 
+### Container hardening pass (2026-09-18, post-build research)
+
+Cross-referenced the Dockerfile/compose against current official Docker, uv, and Ollama
+guidance (research report P0–P11, citations on file); applied the full patch set:
+
+- **Active ignore file** — `deploy/.dockerignore` was never read (Docker looks for
+  `<Dockerfile-name>.dockerignore` next to the Dockerfile when the context root is the repo
+  root): renamed to `deploy/Dockerfile.dockerignore` + added missing entries. The context no
+  longer ships `.git`, `.venv`, `data/`, `runs/`, caches.
+- **Pinned toolchain** — `COPY --from=ghcr.io/astral-sh/uv@sha256:440fd647…` (uv 0.11.16, the
+  lockfile producer, digest-pinned; removes the PyPI round-trip for installing uv itself) and
+  `ollama/ollama:0.34.2@sha256:da6e0dc5…` (version + digest pinned; `:latest` has a history of
+  lagging releases).
+- **uv sync flags** — `--locked --no-dev --no-install-project` (asserts lock freshness; the
+  project has no build backend — `PYTHONPATH=/srv/app/src` stays the contract) + `UV_LINK_MODE=copy`,
+  `UV_COMPILE_BYTECODE=1` per the official Docker guide.
+- **Resource limits mirrored at service level** (`cpus`/`mem_limit` identical to the `deploy`
+  blocks) per the compose-spec consistency requirement — enforced on `up` by Compose v2,
+  version-proof for older tooling.
+- **One-shot `model-init` service** — `ollama pull` after the Ollama service is healthy
+  (`restart: "no"`); the API now `depends_on: service_completed_successfully`, so
+  `up --build` alone produces a working `/chat` (previously the model store came up empty).
+- **Lifecycle hardening** — `init: true` + `restart: unless-stopped` on both long-lived
+  services; `stop_grace_period: 60s` on the API (10 s default would SIGKILL ~50 s cold LLM
+  turns on `down`), 30 s on Ollama.
+- **API healthcheck without curl** — stdlib `urllib` `/health` probe (`start_period: 60 s`
+  for the baseline-profile build at startup, `start_interval: 5 s`).
+- **`read_only: true` + `tmpfs: /tmp`** on the API (immutable root filesystem; rollback note
+  in the compose comments).
+
+Defects #4–#6 found and fixed during this pass:
+
+4. **Missing `data/` mount** — the chat baseline profile reads the challenge CSV at startup
+   (`settings.data_csv_path`), but compose mounted only `runs/` (and the Modal image excluded
+   `data/` entirely). Fixed: `../data:/srv/app/data:ro` in compose; `!data/WA_Fn-UseC_…csv`
+   re-inclusion in the Modal image ignore list.
+5. **Uppercase enum value in the Modal image env** — `TELCO_LLM_BACKEND=OLLAMA` would fail
+   pydantic validation at boot (enum values are lowercase `vllm`/`ollama`/`mock`; verified
+   empirically). Fixed: `"ollama"`. The compose value was already lowercase and valid.
+6. **Dead ignore file** (see above) — the image build context was shipping repo state
+   needlessly; now corrected.
+
+Verification of this pass: `docker compose config --quiet` → OK (client-side); `ast.parse` on
+`modal_app.py` clean; pre-commit + pytest green (no `src/` changes; suite unchanged).
+Live build + smoke re-run pending the user's Docker Desktop restart (see incident above).
+
 ## Open operational items
 
 - GPU latency + VRAM-headroom measurement: deferred (explicit user decision) until a GPU runtime

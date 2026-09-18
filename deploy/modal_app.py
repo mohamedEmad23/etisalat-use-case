@@ -49,6 +49,9 @@ _LOCAL_IGNORE = [
     ".vscode",
     ".claude",
     "data",
+    # '!' negation (dockerignore last-match-wins): re-include the single
+    # challenge CSV the chat baseline profile reads at startup.
+    "!data/WA_Fn-UseC_-Telco-Customer-Churn.csv",
     "docs",
     "openspec",
     "tests",
@@ -72,12 +75,12 @@ image = (
         copy=True,
         ignore=_LOCAL_IGNORE,
     )
-    .run_commands("uv sync --frozen --no-dev")
+    .run_commands("uv sync --locked --no-dev --no-install-project")
     .env(
         {
             "OLLAMA_HOST": f"127.0.0.1:{OLLAMA_PORT}",
             "TELCO_LLM_BASE_URL": f"http://127.0.0.1:{OLLAMA_PORT}/v1",
-            "TELCO_LLM_BACKEND": "OLLAMA",
+            "TELCO_LLM_BACKEND": "ollama",
             "TELCO_API_HOST": "0.0.0.0",  # nosec B104 - bind all interfaces for serverless serving
             "PYTHONPATH": "/srv/app/src",
         }

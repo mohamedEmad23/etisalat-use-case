@@ -1,0 +1,26 @@
+# Effective ignore file for deploy/Dockerfile. Docker looks for
+# <Dockerfile-name>.dockerignore next to the Dockerfile when the context root
+# lives elsewhere — a plain deploy/.dockerignore is never read because this
+# build's context root is the REPO ROOT (compose: context "..", or
+# "docker build … ." from repo root). Patterns are relative to the context root.
+.git
+.venv
+**/__pycache__
+*.pyc
+node_modules/
+.mypy_cache/
+.ruff_cache/
+data/
+docs/
+openspec/
+.opencode/
+runs/
+.env
+*.joblib
+mlflow.db
+mlruns/
+tests/
+.claude/
+.vscode/
+.gitignore
+.python-version

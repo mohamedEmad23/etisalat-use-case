@@ -1,5 +1,9 @@
 # Local CPU stack: FastAPI telco-churn API + Ollama backend.
-# One command from repo root:  docker compose -f deploy/docker-compose.yml up --build
+# One command from repo root:
+#   docker compose -f deploy/docker-compose.yml up --build
+# First run: the one-shot model-init service pulls the qwen3:4b weights
+# (a multi-GB, one-time download over your link; later runs are delta-safe
+# no-ops that exit 0 immediately). The api service waits for it.
 # Then:  curl -s localhost:8000/health
 #  and:  curl -s -X POST localhost:8000/chat \
 #          -H "Authorization: Bearer ${TELCO_API_BEARER_TOKEN}" \
@@ -7,9 +11,16 @@
 #          -d '{"message":"Will a month-to-month fiber customer churn?","session_id":"s1"}'
 # (token value is set in this compose file's api.environment; change it before any shared use)
 
+# Reproducible LLM backend: version + digest pinned (recorded 2026-09-18).
+# Re-resolve when bumping: docker manifest inspect ollama/ollama:0.34.2
+x-ollama-image: &ollama_image ollama/ollama:0.34.2@sha256:da6e0dc5651df159e45686fd663c4dbe1624a52c44d7280eeac1551d8f865532
+
 services:
   ollama:
-    image: ollama/ollama:latest
+    image: *ollama_image
+    init: true                     # PID-1 signal forwarding / zombie reaping insurance
+    restart: unless-stopped        # survives daemon restarts; stops on `compose down`
+    stop_grace_period: 30s
     ports:
       - "11434:11434"
     volumes:
@@ -19,16 +30,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+    # Resource limits are declared at BOTH service level and deploy level with
+    # identical values (compose-spec consistency requirement; enforced by
+    # `docker compose up` on current Compose v2, mirrored for older tooling).
+    cpus: "4"
+    mem_limit: 8g
     deploy:
       resources:
         limits:
           cpus: "4"
           memory: 8g
 
+  # One-shot model pre-pull so `up --build` alone yields a working /chat.
+  # The pull client triggers the download server-side (OLLAMA_HOST points at
+  # the ollama service; the weights land in its ollama-models volume), so no
+  # volume mount is needed here. Re-pulls are delta-safe: missing blobs only.
+  model-init:
+    image: *ollama_image
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["ollama", "pull", "qwen3:4b-instruct-2507-q4_K_M"]
+    restart: "no"
+
   api:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+    init: true
+    restart: unless-stopped
+    # ~50 s cold LLM turns vs the 10 s default grace: give in-flight turns a
+    # chance to finish before SIGKILL on `compose down`/restart.
+    stop_grace_period: 60s
     ports:
       - "8000:8000"
     environment:
@@ -37,11 +72,35 @@ services:
       TELCO_LLM_BACKEND: ollama
       TELCO_API_HOST: 0.0.0.0
     volumes:
+      # Artifacts: churn_artifact_seed*.joblib + reports (read-only).
       - ../runs:/srv/app/runs:ro
+      # Challenge CSV: the chat baseline profile reads it at startup
+      # (settings.data_csv_path → /srv/app/data/...). Read-only bind.
+      - ../data:/srv/app/data:ro
     depends_on:
       ollama:
         condition: service_healthy
-    # Resource limits (container-hardening requirement: declared, not implied).
+      model-init:
+        condition: service_completed_successfully
+    # Hardening: immutable root filesystem; /tmp writable via tmpfs.
+    # Rollback note: if /chat ever 500s right after enabling, revert
+    # read_only first — nothing else in the app writes to disk.
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Readiness probe without curl (python:3.13-slim ships no curl and
+    # adding it just for probes is waste): stdlib urllib hits /health.
+    # start_period grants the baseline-profile build at startup; probe
+    # failures inside it do not count toward retries.
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+    cpus: "2"
+    mem_limit: 2g
     deploy:
       resources:
         limits:
