@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/pyrightconfig.json",
+  "include": ["src", "tests"],
+  "pythonVersion": "3.13",
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": ["src"],
+  "typeCheckingMode": "basic"
+}

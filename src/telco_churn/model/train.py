@@ -21,6 +21,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
+from typing import Any, cast
 from typing import Any
 
 import numpy as np
@@ -31,6 +32,8 @@ from sklearn.metrics import brier_score_loss, precision_recall_curve, roc_auc_sc
 from sklearn.model_selection import StratifiedKFold
 
 from telco_churn.config import get_settings
+from telco_churn.data.clean import clean
+from telco_churn.data.ingest import load_churn_csv
 from telco_churn.data.split import stratified_split
 from telco_churn.model.artifact import (
     ChurnArtifact,
@@ -184,11 +187,19 @@ def fit_frame(
     # (same seeds, same sweeps); folds stay sequential inside the objective
     # so the MedianPruner can report running means and cut losing trials.
     parallel = Parallel(n_jobs=min(N_JOBS, len(MODEL_KEYS)), prefer="processes")
-    results = parallel(
-        delayed(_tune_one_candidate)(
-            model_key, X_train, y_train, seed=seed, n_splits=n_splits, n_trials=n_trials
-        )
-        for model_key in MODEL_KEYS
+    results = cast(
+        "list[tuple[str, float, dict[str, Any]]]",
+        parallel(
+            delayed(_tune_one_candidate)(
+                model_key,
+                X_train,
+                y_train,
+                seed=seed,
+                n_splits=n_splits,
+                n_trials=n_trials,
+            )
+            for model_key in MODEL_KEYS
+        ),
     )
     comparison: list[dict[str, Any]] = []
     best_key: str | None = None
@@ -347,7 +358,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     settings = get_settings()
-    frame = pl.read_csv(str(settings.data_csv_path))
+    # Full ingestion + cleaning pipeline — never the raw CSV. The cleaned
+    # frame is also persisted next to the raw source for visibility/reuse
+    # (data/churn_cleaned.csv), so what the model trains on is inspectable.
+    frame = clean(load_churn_csv())
+    cleaned_path = Path(str(settings.data_csv_path)).parent / "churn_cleaned.csv"
+    frame.write_csv(cleaned_path)
+    print(f"cleaned training frame written to {cleaned_path}")
+
     summary = train_all(frame, n_trials=args.n_trials, registry_dir=args.registry_dir)
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
