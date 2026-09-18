@@ -92,9 +92,21 @@ Defects #4–#6 found and fixed during this pass:
 6. **Dead ignore file** (see above) — the image build context was shipping repo state
    needlessly; now corrected.
 
+7. **uv connect-timeout vs the CDN (root cause of the recurring PyPI flake)** — build logs showed
+   "3 retries in 45.8s" (~15s/attempt) despite `UV_HTTP_TIMEOUT=120`; per uv's environment
+   reference the failing knob was `UV_HTTP_CONNECT_TIMEOUT` (default **10 s**) — a probe to
+   files.pythonhosted.org from this host measured 11.65 s, so default connects fail by a hair.
+   Fixed in the Dockerfile ENV (`UV_HTTP_CONNECT_TIMEOUT=60`, `UV_HTTP_TIMEOUT=300`,
+   `UV_HTTP_RETRIES=10`, `UV_CONCURRENT_DOWNLOADS` 8→4) plus a 5-attempt outer retry loop;
+   the cache mount keeps every completed wheel so retries only cost missing wheels.
+
 Verification of this pass: `docker compose config --quiet` → OK (client-side); `ast.parse` on
 `modal_app.py` clean; pre-commit + pytest green (no `src/` changes; suite unchanged).
-Live build + smoke re-run pending the user's Docker Desktop restart (see incident above).
+**Live build + smoke re-run: PASSED 2026-09-18** (after the user's Docker Desktop restart) —
+`docker build` → `uv sync` completed on attempt 1/5 in 210.7 s; container smoke →
+`GET /health` = `{"service":"ok","llm":"unreachable"}` (no Ollama in the smoke container —
+correct); `docker compose config --quiet` → OK. Full compose stack (with model pull) is the
+remaining user-run step.
 
 ## Open operational items
 
