@@ -38,11 +38,11 @@
 
 ## 5. Phase 4 — Chat API (`telco-churn/chat-api`)
 
-- [ ] 5.1 Wire FastAPI `POST /chat` + `GET /health` with bearer auth; verify httpx tests: 401 unauthenticated, 200 authenticated round trip, health reflects LLM reachability
-- [ ] 5.2 Implement stable JSON error contract (global handler, no stack traces to clients); verify test on forced internal error
-- [ ] 5.3 Implement OWASP API Security Top 10 (2023) checklist + controls (rate limiting, secure defaults, inventory doc); verify checklist reviewed and rate-limit test passes
-- [ ] 5.4 Build perf budget harness (p95 end-to-end, first-token latency instrumentation); verify harness produces measured numbers locally
-- [ ] 5.5 Write docker-compose local stack (api + ollama); verify one-command end-to-end chat succeeds on CPU
+- [x] 5.1 Wire FastAPI `POST /chat` + `GET /health` with bearer auth; verify httpx tests: 401 unauthenticated, 200 authenticated round trip, health reflects LLM reachability
+- [x] 5.2 Implement stable JSON error contract (global handler, no stack traces to clients); verify test on forced internal error
+- [x] 5.3 Implement OWASP API Security Top 10 (2023) checklist + controls (rate limiting, secure defaults, inventory doc); verify checklist reviewed and rate-limit test passes
+- [x] 5.4 Build perf budget harness (p95 end-to-end, first-token latency instrumentation); verify harness produces measured numbers locally
+- [x] 5.5 Write docker-compose local stack (api + ollama); verify one-command end-to-end chat succeeds on CPU
 
 ## 6. Phase 5 — Deployment + docs (`telco-churn/deployment`)
 

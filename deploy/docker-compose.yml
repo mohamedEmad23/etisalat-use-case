@@ -1,0 +1,41 @@
+# Local CPU stack: FastAPI telco-churn API + Ollama backend.
+# One command from repo root:  docker compose -f deploy/docker-compose.yml up --build
+# Then:  curl -s localhost:8000/health
+#  and:  curl -s -X POST localhost:8000/chat \
+#          -H "Authorization: Bearer ${TELCO_API_BEARER_TOKEN}" \
+#          -H "Content-Type: application/json" \
+#          -d '{"message":"Will a month-to-month fiber customer churn?","session_id":"s1"}'
+# (token value is set in this compose file's api.environment; change it before any shared use)
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "ls"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      TELCO_API_BEARER_TOKEN: local-demo-token
+      TELCO_LLM_BASE_URL: http://ollama:11434/v1
+      TELCO_LLM_BACKEND: ollama
+      TELCO_API_HOST: 0.0.0.0
+    volumes:
+      - ../runs:/app/runs:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+volumes:
+  ollama-models:

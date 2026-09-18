@@ -40,6 +40,10 @@ class AppConfig(BaseSettings):
     model_registry_dir: Path = Path("runs")
     extraction_failover_model: str | None = None  # documented Qwen3-8B swap path
 
+    # Rate limiting (OWASP API4/API6 control; per-token in-process window)
+    rate_limit_calls: int = 60  # max authenticated chat calls per window
+    rate_limit_window_seconds: int = 3600
+
     @field_validator("api_host")
     @classmethod
     def _reject_placeholder_host(cls, v: str) -> str:

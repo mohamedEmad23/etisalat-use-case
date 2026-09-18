@@ -1,0 +1,17 @@
+# Keep the build context small and secret-free.
+.git
+.venv
+**/__pycache__
+*.pyc
+data/
+docs/
+openspec/
+.opencode/
+runs/
+.env
+*.joblib
+mlflow.db
+mlruns/
+tests/
+.claude/
+.vscode/

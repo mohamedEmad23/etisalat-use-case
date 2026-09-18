@@ -86,6 +86,18 @@ class LlmClient:
         self._no_numeric_fields(candidate)
         return candidate
 
+    def reachable(self) -> bool:
+        """Lightweight liveness probe of the LLM backend (never raises)."""
+        try:
+            response = self._client.get(
+                "/models",
+                timeout=httpx.Timeout(timeout=5.0, connect=5.0),
+            )
+            response.raise_for_status()
+        except (httpx.HTTPError, httpx.InvalidURL, OSError):
+            return False
+        return response.status_code == 200
+
     @staticmethod
     def _no_numeric_fields(candidate: dict[str, Any]) -> None:
         """Schema-invalid output dies here, before the tool executor."""
