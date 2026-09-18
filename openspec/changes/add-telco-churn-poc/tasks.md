@@ -46,12 +46,12 @@
 
 ## 6. Phase 5 — Deployment + docs (`telco-churn/deployment`)
 
-- [ ] 6.1 Write `deploy/modal_app.py` (FastAPI + vLLM containers, pinned versions, scaledown_window ≈ 1800 s); verify staged `modal deploy` succeeds
-- [ ] 6.2 Measure demo-GPU budgets (p95 ≤ 5 s, first token ≤ 1 s, VRAM headroom ≥ 20%); verify `docs/perf-report.md` records measured numbers
-- [ ] 6.3 Write RunPod 3090 stop-pod fallback runbook; verify runbook reviewed (start/stop preserves storage)
-- [ ] 6.4 Harden container (non-root, no secrets in image, resource limits, pinned base); verify image inspection audit
-- [ ] 6.5 Write `docs/architecture.md` (Mermaid diagrams from design.md) + `etisalat-use-case/README.md`; verify docs complete and link-consistent
-- [ ] 6.6 Append operations record to `wiki/log.md`; verify log entry exists (no wiki entries per user directive)
+- [x] 6.1 Write `deploy/modal_app.py` (FastAPI + vLLM containers, pinned versions, scaledown_window ≈ 1800 s); verify staged `modal deploy` succeeds
+- [x] 6.2 Measure demo-GPU budgets (p95 ≤ 5 s, first token ≤ 1 s, VRAM headroom ≥ 20%); verify `docs/perf-report.md` records measured numbers
+- [x] 6.3 Write RunPod 3090 stop-pod fallback runbook; verify runbook reviewed (start/stop preserves storage)
+- [x] 6.4 Harden container (non-root, no secrets in image, resource limits, pinned base); verify image inspection audit
+- [x] 6.5 Write `docs/architecture.md` (Mermaid diagrams from design.md) + `etisalat-use-case/README.md`; verify docs complete and link-consistent
+- [x] 6.6 Append operations record to `wiki/log.md`; verify log entry exists (no wiki entries per user directive)
 
 ## 7. Final verification
 

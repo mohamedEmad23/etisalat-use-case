@@ -24,8 +24,28 @@ Modal A10G (or pinned vLLM container) in Phase 6 (task 6.2, same harness
 `telco_churn.api.perf`, results appended below). A CPU miss with the measured
 number is documented here rather than tuning the budget to match the hardware.
 
-## Phase 6 GPU run (to be appended after `modal deploy`)
+## Phase 6 GPU run (to be appended after a GPU platform is exercised)
 
-- Hardware: Modal GPU (model/card stated at run time), pinned vLLM image
+- Hardware: Modal GPU — T4 default, L4 via `TELCO_MODAL_GPU` (`deploy/modal_app.py`,
+  adopted runtime: Ollama 4-bit Qwen3-4B single container; vLLM is the documented
+  variant only). No account existed at Phase 5 close, so the GPU numbers could not
+  be produced here — measurement is **deferred with the user's explicit deferral
+  decision** (no account = no card = no cost; the CPU stack above is the honest
+  recorded baseline).
+- Harness (unchanged, same code path)::
+
+  modal secret create telco-api-bearer TELCO_API_BEARER_TOKEN=<value>
+  modal deploy deploy/modal_app.py
+  PYTHONPATH=src TELCO_API_BEARER_TOKEN=<value> .venv/bin/python -m telco_churn.api.perf --repeats 9
+
 - p95 e2e: _pending measurement_
 - p95 first token: _pending measurement_
+- VRAM headroom (≥20% requirement): _pending measurement_ — capture with
+  `nvidia-smi --query-gpu=memory.used,memory.total --format=csv` under demo load
+  and record the free-percentage below.
+
+| metric | measured | budget | verdict |
+|--------|----------|--------|---------|
+| p95 e2e turn (GPU) | pending | ≤ 5 s | pending |
+| p95 first token (GPU) | pending | ≤ 1 s | pending |
+| VRAM headroom (GPU) | pending | ≥ 20% free | pending |

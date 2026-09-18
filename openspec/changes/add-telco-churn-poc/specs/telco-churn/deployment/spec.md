@@ -8,7 +8,7 @@ Run the service where the budget allows: a scale-to-zero serverless GPU as prima
 
 ### Requirement: Serverless scale-to-zero serving
 
-The primary deployment SHALL serve the API and the LLM (vLLM-class runtime, open-source model) on a scale-to-zero serverless platform with no standing GPU cost when idle.
+The primary deployment SHALL serve the API and the LLM on a scale-to-zero serverless platform with no standing GPU cost when idle. The serving runtime SHALL be an OpenAI-compatible LLM server (llama.cpp serving via a local-inference daemon) running a 4-bit quantized open-source model inside the SAME scale-to-zero GPU container as the API (single-container pattern), with model weights cached in a platform-managed persistent volume so cold starts do not re-download them. A vLLM-class runtime MAY be adopted as the documented variant when concurrent multi-user serving is required; it MUST remain a documented switch, not the default path. The deployment MAY be deferred entirely: without a platform account the local one-command stack on CPU remains a legitimate PoC demonstration, and no code path may require the platform to run.
 
 #### Scenario: Idle cost is zero
 
@@ -19,6 +19,11 @@ The primary deployment SHALL serve the API and the LLM (vLLM-class runtime, open
 
 - **WHEN** a request arrives at the scaled-down deployment
 - **THEN** the platform scales up, the service becomes reachable within the documented cold-start budget, and the request completes
+
+#### Scenario: Weights restored from volume
+
+- **WHEN** a scaled-down deployment scales up again after the volume has persisted the model weights
+- **THEN** the LLM loads from the cached weights without re-downloading from the internet
 
 ### Requirement: Demo window management
 
@@ -36,7 +41,7 @@ The deployment SHALL provide a documented demo-window configuration: an idle sca
 
 ### Requirement: Local development parity
 
-Local development SHALL run the same pipeline against a locally served open-source LLM (4-bit quantized) launched via a single compose command, with the application layer configuration-switchable between local and serverless backends; unit tests MUST run without any GPU or LLM.
+Local development SHALL run the same pipeline against a locally served open-source LLM (4-bit quantized) launched via a single compose command, with the application layer configuration-switchable between local and serverless backends. Unit tests MUST run without any GPU or LLM: deterministic test doubles are confined to the unit test suites, and live-model behavior is verified separately by a gated smoke check and by user acceptance through the served paths. Every served or demo path MUST resolve the real configured LLM backend; no mock or fake LLM backend MAY be wired into any demo or serving runtime.
 
 #### Scenario: One-command local stack
 
@@ -46,7 +51,12 @@ Local development SHALL run the same pipeline against a locally served open-sour
 #### Scenario: GPU-free CI
 
 - **WHEN** the unit test suite runs in CI with no GPU and no LLM available
-- **THEN** all tests pass because LLM interactions are mocked
+- **THEN** all tests pass because deterministic doubles are used inside the test suites only
+
+#### Scenario: Demo path is real
+
+- **WHEN** a user drives a chat turn through any served or demo path
+- **THEN** the response is produced by the real configured LLM and classifier, with the model identity visible in the health endpoint
 
 ### Requirement: Documented GPU fallback
 

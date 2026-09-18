@@ -19,6 +19,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8g
 
   api:
     build:
@@ -32,10 +37,19 @@ services:
       TELCO_LLM_BACKEND: ollama
       TELCO_API_HOST: 0.0.0.0
     volumes:
-      - ../runs:/app/runs:ro
+      - ../runs:/srv/app/runs:ro
     depends_on:
       ollama:
         condition: service_healthy
+    # Resource limits (container-hardening requirement: declared, not implied).
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+
+# Resource limits for the GPU/LLM backend are host-DRAM caps; VRAM headroom is
+# measured separately in docs/perf-report.md (≥20% free requirement).
 
 volumes:
   ollama-models:
