@@ -8,7 +8,7 @@ Run the service where the budget allows: a scale-to-zero serverless GPU as prima
 
 ### Requirement: Serverless scale-to-zero serving
 
-The primary deployment SHALL serve the API and the LLM on a scale-to-zero serverless platform with no standing GPU cost when idle. The serving runtime SHALL be an OpenAI-compatible LLM server (llama.cpp serving via a local-inference daemon) running a 4-bit quantized open-source model inside the SAME scale-to-zero GPU container as the API (single-container pattern), with model weights cached in a platform-managed persistent volume so cold starts do not re-download them. A vLLM-class runtime MAY be adopted as the documented variant when concurrent multi-user serving is required; it MUST remain a documented switch, not the default path. The deployment MAY be deferred entirely: without a platform account the local one-command stack on CPU remains a legitimate PoC demonstration, and no code path may require the platform to run.
+The primary deployment SHALL serve the API and the LLM on a scale-to-zero serverless platform with no standing GPU cost when idle. The LLM runtime SHALL be the OpenAI-compatible Ollama (llama.cpp) server running Qwen3-4B-Instruct-2507 (4-bit quantized) inside the same GPU container as the API (single-container pattern), with model weights cached in a platform volume so container restarts do not re-download them; a vLLM-class runtime SHALL remain documented as the variant reserved for concurrent multi-user demos. Deploying to the serverless platform MAY be deferred entirely: without a platform account, the documented local CPU stack running the real Ollama model SHALL remain the legitimate PoC demonstration.
 
 #### Scenario: Idle cost is zero
 
@@ -22,8 +22,18 @@ The primary deployment SHALL serve the API and the LLM on a scale-to-zero server
 
 #### Scenario: Weights restored from volume
 
-- **WHEN** a scaled-down deployment scales up again after the volume has persisted the model weights
-- **THEN** the LLM loads from the cached weights without re-downloading from the internet
+- **WHEN** the serverless container starts
+- **THEN** the Ollama server loads model weights from the platform volume rather than re-downloading them per cold start
+
+#### Scenario: vLLM variant only on demand
+
+- **WHEN** the demo must serve concurrent multi-user traffic
+- **THEN** the documented vLLM variant is deployed behind the identical OpenAI-compatible endpoint with no application-layer changes
+
+#### Scenario: Deferred platform path
+
+- **WHEN** no serverless platform account exists
+- **THEN** the documented demo path is the local CPU compose stack running the real Ollama model, at zero platform cost
 
 ### Requirement: Demo window management
 
@@ -41,7 +51,7 @@ The deployment SHALL provide a documented demo-window configuration: an idle sca
 
 ### Requirement: Local development parity
 
-Local development SHALL run the same pipeline against a locally served open-source LLM (4-bit quantized) launched via a single compose command, with the application layer configuration-switchable between local and serverless backends. Unit tests MUST run without any GPU or LLM: deterministic test doubles are confined to the unit test suites, and live-model behavior is verified separately by a gated smoke check and by user acceptance through the served paths. Every served or demo path MUST resolve the real configured LLM backend; no mock or fake LLM backend MAY be wired into any demo or serving runtime.
+Local development SHALL run the same pipeline against a locally served open-source LLM (4-bit quantized) launched via a single compose command, with the application layer configuration-switchable between local and serverless backends. The local and serverless demo paths MUST use the real configured LLM — no mock backend in any served runtime. The unit test suite MUST run without any GPU or live LLM, using deterministic test doubles confined to test code.
 
 #### Scenario: One-command local stack
 
@@ -50,13 +60,14 @@ Local development SHALL run the same pipeline against a locally served open-sour
 
 #### Scenario: GPU-free CI
 
-- **WHEN** the unit test suite runs in CI with no GPU and no LLM available
-- **THEN** all tests pass because deterministic doubles are used inside the test suites only
+- **WHEN** the unit test suite runs in CI with no GPU and no live LLM
+- **THEN** all tests pass because LLM interactions use deterministic test doubles confined to test suites
+- **AND** live-model behavior is verified separately by the gated demo smoke check and user acceptance through the demo page
 
 #### Scenario: Demo path is real
 
-- **WHEN** a user drives a chat turn through any served or demo path
-- **THEN** the response is produced by the real configured LLM and classifier, with the model identity visible in the health endpoint
+- **WHEN** a chat turn is served by the demo stack (local or serverless)
+- **THEN** the answer originates from the actually-running open-source model, and the smoke report records the model identity and turn latency
 
 ### Requirement: Documented GPU fallback
 
@@ -85,3 +96,17 @@ The deployed LLM configuration SHALL retain at least 20% VRAM headroom on the ta
 - **WHEN** the demo load profile runs on the target GPU
 - **THEN** peak VRAM usage leaves ≥20% of device memory free
 - **AND** the measured figure is recorded in the deployment docs
+
+### Requirement: Demo-first deployment smoke
+
+Every deployment (serverless or local stack) SHALL be smoke-verified before a demo: `GET /health` reachable plus one real authenticated chat turn through the demo page (or an equivalent authenticated scripted request when recording the artifact), with the smoke report written to `runs/demo_smoke_report.json` recording model identity, backend, turn latency, and schema validity.
+
+#### Scenario: Smoke gate passes
+
+- **WHEN** the deployment smoke run executes against a healthy deployment
+- **THEN** `/health` reports reachable and the recorded turn is answered by the configured real model with measured latency
+
+#### Scenario: Smoke gate fails loudly
+
+- **WHEN** the smoke run cannot obtain a real model answer (backend unreachable or invalid response)
+- **THEN** the smoke report marks the deployment not demo-ready — the failure is visible, not silently masked by a mock
