@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from telco_churn.api.app import create_app
 from telco_churn.api.rate_limit import RateLimiter
+from telco_churn.config import get_settings
 from telco_churn.model.train import fit_frame
 from telco_churn.serving.llm_client import FakeExtractionTransport, LlmClient
 
@@ -115,14 +116,22 @@ class TestHealth:
         client = TestClient(create_app(artifact=artifact, llm=llm))
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"service": "ok", "llm": "reachable"}
+        body = response.json()
+        assert body["service"] == "ok"
+        assert body["llm"] == "reachable"
+        assert body["llm_model"] == get_settings().llm_model
+        assert body["llm_backend"] == get_settings().llm_backend.value
 
     def test_health_surfaces_unreachable_backend(self, artifact: Any) -> None:
         llm = LlmClient(transport=_DeadTransport())
         client = TestClient(create_app(artifact=artifact, llm=llm))
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"service": "ok", "llm": "unreachable"}
+        body = response.json()
+        assert body["service"] == "ok"
+        assert body["llm"] == "unreachable"
+        assert body["llm_model"] == get_settings().llm_model
+        assert body["llm_backend"] == get_settings().llm_backend.value
 
     def test_health_needs_no_token(self, good_client: TestClient) -> None:
         assert good_client.get("/health").status_code == 200

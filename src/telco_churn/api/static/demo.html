@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telco Churn Copilot</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f3f5fa;
+    --surface: #ffffff;
+    --surface-2: #eef1f8;
+    --border: #d8deea;
+    --text: #1b2333;
+    --muted: #5a6478;
+    --accent: #3355d3;
+    --accent-soft: #e6ebfd;
+    --danger: #b3261e;
+    --danger-bg: #fdeceb;
+    --ok: #1e7a45;
+    --ok-bg: #e7f5ed;
+    --warn: #8a5a00;
+    --warn-bg: #fcf2df;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 10px 28px rgba(16, 24, 40, .07);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1522;
+      --surface: #161d2c;
+      --surface-2: #1e2637;
+      --border: #2a3448;
+      --text: #e9edf6;
+      --muted: #9aa6bd;
+      --accent: #7d97ff;
+      --accent-soft: #1c2745;
+      --danger: #f2b8b5;
+      --danger-bg: #3a1d1b;
+      --ok: #8fd6ab;
+      --ok-bg: #12301f;
+      --warn: #e6c07b;
+      --warn-bg: #33270f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px rgba(0, 0, 0, .35);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  h1, h2, h3, p { margin: 0; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .topbar {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    justify-content: space-between;
+    max-width: 1180px; margin: 0 auto; padding: 20px 20px 8px;
+  }
+  .brand h1 { font-size: 20px; letter-spacing: -.01em; }
+  .brand p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .identity {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    font-size: 12.5px;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 10px; color: var(--muted);
+    max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px; padding: 4px 10px; font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .badge.unknown { background: var(--surface-2); color: var(--muted); border-color: var(--border); }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.bad { background: var(--danger-bg); color: var(--danger); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .ghost {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12.5px; cursor: pointer;
+  }
+  .ghost:hover { background: var(--surface-2); }
+
+  .layout {
+    display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px;
+    max-width: 1180px; margin: 0 auto; padding: 12px 20px 28px;
+    align-items: start;
+  }
+  .sidebar { display: grid; gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 16px;
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 10px; }
+  .hint { color: var(--muted); font-weight: 400; font-size: 12px; }
+  label { display: block; font-size: 13px; margin: 10px 0 4px; }
+  input[type="password"], input[type="text"], textarea {
+    width: 100%; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface-2); color: var(--text); padding: 9px 10px;
+    font: inherit; font-size: 14px;
+  }
+  textarea { resize: vertical; min-height: 52px; }
+  .samples { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .samples button {
+    width: 100%; text-align: left; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text); border-radius: 8px;
+    padding: 8px 10px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .samples button:hover { border-color: var(--accent); color: var(--accent); }
+  .note { font-size: 13px; color: var(--muted); }
+
+  .chatpanel { display: flex; flex-direction: column; gap: 12px; min-height: 560px; }
+  .transcript { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; max-height: 62vh; padding-right: 4px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 24px 4px; }
+  .msg { display: flex; flex-direction: column; max-width: 86%; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.assistant { align-self: flex-start; align-items: flex-start; }
+  .bubble {
+    border-radius: 12px; padding: 10px 12px; border: 1px solid var(--border);
+    background: var(--surface-2); white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .msg.user .bubble { background: var(--accent-soft); border-color: transparent; }
+  .msg.assistant .bubble { background: var(--surface-2); }
+  .msg .who { font-size: 11.5px; color: var(--muted); margin: 0 2px 4px; }
+  .typing { color: var(--muted); font-style: italic; }
+
+  .payload {
+    margin-top: 8px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); padding: 12px; width: min(420px, 100%);
+  }
+  .payload-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .prob { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+  .pill { border-radius: 999px; padding: 3px 10px; font-size: 12.5px; font-weight: 600; }
+  .pill.churner { background: var(--danger-bg); color: var(--danger); }
+  .pill.safe { background: var(--ok-bg); color: var(--ok); }
+  .prob-raw { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .drivers { margin-top: 10px; display: grid; gap: 6px; }
+  .drivers-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .driver { display: grid; grid-template-columns: 130px minmax(0, 1fr) 64px; gap: 8px; align-items: center; font-size: 12.5px; }
+  .d-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .d-bar { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .d-bar i { display: block; height: 100%; border-radius: 999px; background: var(--danger); }
+  .d-bar i.neg { background: var(--ok); }
+  .d-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  .banner {
+    border: 1px solid var(--danger); background: var(--danger-bg); color: var(--danger);
+    border-radius: 10px; padding: 10px 12px; font-size: 13.5px;
+  }
+  .banner.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+  .banner code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+  .composer { display: flex; gap: 10px; align-items: flex-end; }
+  .composer textarea { flex: 1; }
+  .send {
+    border: 0; border-radius: 10px; padding: 11px 18px; cursor: pointer;
+    background: var(--accent); color: #ffffff; font: inherit; font-weight: 600;
+  }
+  .send:hover { filter: brightness(1.06); }
+  .send:disabled { opacity: .55; cursor: not-allowed; }
+  .foot { color: var(--muted); font-size: 12px; text-align: right; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .transcript { max-height: none; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <h1>Telco Churn Copilot</h1>
+    <p>Natural-language churn predictions for the marketing team</p>
+  </div>
+  <div class="identity" aria-live="polite">
+    <span class="chip" id="chip-model">model: <b id="model-name">checking…</b></span>
+    <span class="chip" id="chip-backend">backend: <b id="backend-name">—</b></span>
+    <span class="badge unknown" id="llm-badge"><span class="dot"></span><span id="llm-status">checking</span></span>
+    <button class="ghost" id="refresh" type="button" aria-label="Refresh model identity">Refresh</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="sidebar">
+    <section class="card" aria-labelledby="session-title">
+      <h2 id="session-title">Session</h2>
+      <label for="token">Bearer token <span class="hint">(kept in this tab's memory only)</span></label>
+      <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API token">
+      <label for="session">Session id</label>
+      <input id="session" type="text" autocomplete="off" spellcheck="false">
+      <p class="note" style="margin-top:10px">The session id groups follow-up questions about the same customer profile.</p>
+    </section>
+
+    <section class="card" aria-labelledby="samples-title">
+      <h2 id="samples-title">Try asking</h2>
+      <ul class="samples" id="samples">
+        <li><button type="button">Will a fiber-optic customer on a month-to-month contract churn?</button></li>
+        <li><button type="button">What about a DSL customer with no tech support who has been with us 3 months?</button></li>
+        <li><button type="button">Would a two year contract customer with fiber optic churn?</button></li>
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="about-title">
+      <h2 id="about-title">Transparency</h2>
+      <p class="note">Every answer comes from the live open-source model shown above. The model only maps your
+      words to customer-profile facts; the churn probability itself is computed by the trained classifier and
+      shown verbatim — never invented.</p>
+    </section>
+  </aside>
+
+  <section class="card chatpanel" aria-labelledby="chat-title">
+    <h2 id="chat-title" class="visually-hidden">Conversation</h2>
+    <div class="transcript" id="transcript" aria-live="polite">
+      <p class="empty" id="empty">Ask a question about a subscriber profile to see a churn prediction.</p>
+    </div>
+    <div class="banner" id="banner" role="alert" hidden></div>
+    <form class="composer" id="composer">
+      <label class="visually-hidden" for="message">Message</label>
+      <textarea id="message" rows="2" placeholder="e.g. Will a month-to-month customer churn?"></textarea>
+      <button class="send" id="send" type="submit">Send</button>
+    </form>
+    <p class="foot">Enter sends · Shift+Enter adds a line break</p>
+  </section>
+</main>
+
+<script>
+  "use strict";
+
+  const state = { token: "", sessionId: "", busy: false };
+
+  const el = {
+    modelName: document.getElementById("model-name"),
+    backendName: document.getElementById("backend-name"),
+    llmBadge: document.getElementById("llm-badge"),
+    llmStatus: document.getElementById("llm-status"),
+    refresh: document.getElementById("refresh"),
+    token: document.getElementById("token"),
+    session: document.getElementById("session"),
+    samples: document.getElementById("samples"),
+    transcript: document.getElementById("transcript"),
+    empty: document.getElementById("empty"),
+    banner: document.getElementById("banner"),
+    composer: document.getElementById("composer"),
+    message: document.getElementById("message"),
+    send: document.getElementById("send")
+  };
+
+  function defaultSession() {
+    return "demo-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function setBanner(text, warn) {
+    el.banner.textContent = text;
+    el.banner.classList.toggle("warn", Boolean(warn));
+    el.banner.hidden = false;
+  }
+
+  function clearBanner() {
+    el.banner.hidden = true;
+    el.banner.textContent = "";
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    el.send.disabled = busy;
+    el.send.textContent = busy ? "Working…" : "Send";
+  }
+
+  function setStatus(status) {
+    el.llmBadge.className = "badge " + status.kind;
+    el.llmStatus.textContent = status.label;
+  }
+
+  async function loadIdentity() {
+    el.modelName.textContent = "checking…";
+    el.backendName.textContent = "—";
+    setStatus({ kind: "unknown", label: "checking" });
+    try {
+      const response = await fetch("/health");
+      const data = await response.json();
+      el.modelName.textContent = data.llm_model || "unknown";
+      el.backendName.textContent = data.llm_backend || "unknown";
+      if (data.llm === "reachable") {
+        setStatus({ kind: "ok", label: "model reachable" });
+      } else {
+        setStatus({ kind: "bad", label: "model unreachable" });
+      }
+    } catch (error) {
+      el.modelName.textContent = "unknown";
+      el.backendName.textContent = "unknown";
+      setStatus({ kind: "bad", label: "api unreachable" });
+    }
+  }
+
+  function hideEmptyState() {
+    if (el.empty && el.empty.parentNode) {
+      el.empty.parentNode.removeChild(el.empty);
+    }
+  }
+
+  function addMessage(role, text) {
+    hideEmptyState();
+    const wrap = document.createElement("div");
+    wrap.className = "msg " + role;
+    const who = document.createElement("p");
+    who.className = "who";
+    who.textContent = role === "user" ? "You" : "Copilot";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+    wrap.appendChild(who);
+    wrap.appendChild(bubble);
+    el.transcript.appendChild(wrap);
+    el.transcript.scrollTop = el.transcript.scrollHeight;
+    return wrap;
+  }
+
+  function addTyping() {
+    const wrap = addMessage("assistant", "…");
+    const bubble = wrap.querySelector(".bubble");
+    bubble.classList.add("typing");
+    return wrap;
+  }
+
+  function formatProbability(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return { percent: "—", raw: String(value) };
+    }
+    return { percent: (numeric * 100).toFixed(1) + "%", raw: numeric.toFixed(4) };
+  }
+
+  function renderPayload(parent, payload) {
+    const probability = formatProbability(payload.churn_probability);
+    const card = document.createElement("div");
+    card.className = "payload";
+
+    const head = document.createElement("div");
+    head.className = "payload-head";
+    const prob = document.createElement("span");
+    prob.className = "prob";
+    prob.textContent = probability.percent;
+    const pill = document.createElement("span");
+    const isChurner = payload.churn_label === "Churner";
+    pill.className = "pill " + (isChurner ? "churner" : "safe");
+    pill.textContent = payload.churn_label || "unknown";
+    head.appendChild(prob);
+    head.appendChild(pill);
+
+    const raw = document.createElement("div");
+    raw.className = "prob-raw";
+    raw.textContent = "churn probability " + probability.raw;
+
+    card.appendChild(head);
+    card.appendChild(raw);
+
+    const drivers = Array.isArray(payload.drivers) ? payload.drivers : [];
+    if (drivers.length > 0) {
+      const block = document.createElement("div");
+      block.className = "drivers";
+      const title = document.createElement("div");
+      title.className = "drivers-title";
+      title.textContent = "Top drivers (positive pushes toward churn)";
+      block.appendChild(title);
+      const max = drivers.reduce(function (acc, d) {
+        const value = Math.abs(Number(d.contribution));
+        return Number.isFinite(value) && value > acc ? value : acc;
+      }, 0);
+      drivers.forEach(function (driver) {
+        const row = document.createElement("div");
+        row.className = "driver";
+        const name = document.createElement("span");
+        name.className = "d-name";
+        name.textContent = driver.feature;
+        const bar = document.createElement("span");
+        bar.className = "d-bar";
+        const fill = document.createElement("i");
+        const contribution = Number(driver.contribution);
+        const width = max > 0 && Number.isFinite(contribution)
+          ? Math.max(4, Math.round((Math.abs(contribution) / max) * 100))
+          : 4;
+        fill.style.width = width + "%";
+        if (contribution < 0) {
+          fill.className = "neg";
+        }
+        bar.appendChild(fill);
+        const value = document.createElement("span");
+        value.className = "d-val";
+        value.textContent = Number.isFinite(contribution) ? contribution.toFixed(4) : "—";
+        row.appendChild(name);
+        row.appendChild(bar);
+        row.appendChild(value);
+        block.appendChild(row);
+      });
+      card.appendChild(block);
+    }
+
+    parent.querySelector(".bubble").appendChild(card);
+    el.transcript.scrollTop = el.transcript.scrollHeight;
+  }
+
+  async function sendTurn(message) {
+    clearBanner();
+    state.token = el.token.value.trim();
+    state.sessionId = el.session.value.trim() || defaultSession();
+    el.session.value = state.sessionId;
+
+    addMessage("user", message);
+    const pending = addTyping();
+    setBusy(true);
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + state.token
+        },
+        body: JSON.stringify({ message: message, session_id: state.sessionId })
+      });
+
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        data = null;
+      }
+
+      if (!response.ok) {
+        const problem = (data && data.error) ? data.error : null;
+        const code = problem && problem.code ? problem.code : "status_" + response.status;
+        const detail = problem && problem.message ? problem.message : "request failed";
+        setBanner(code + " — " + detail);
+        pending.querySelector(".bubble").textContent = "No prediction was produced.";
+        return;
+      }
+
+      pending.querySelector(".bubble").textContent = data.text || "(empty reply)";
+      if (data.payload) {
+        renderPayload(pending, data.payload);
+      }
+    } catch (networkError) {
+      setBanner("network_error — could not reach the API. Is the local stack running?");
+      pending.querySelector(".bubble").textContent = "No prediction was produced.";
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  el.composer.addEventListener("submit", function (event) {
+    event.preventDefault();
+    const message = el.message.value.trim();
+    if (!message || state.busy) {
+      return;
+    }
+    el.message.value = "";
+    sendTurn(message);
+  });
+
+  el.message.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      el.composer.requestSubmit();
+    }
+  });
+
+  el.samples.addEventListener("click", function (event) {
+    const button = event.target.closest("button");
+    if (button) {
+      el.message.value = button.textContent;
+      el.message.focus();
+    }
+  });
+
+  el.refresh.addEventListener("click", loadIdentity);
+
+  el.session.value = defaultSession();
+  loadIdentity();
+</script>
+</body>
+</html>

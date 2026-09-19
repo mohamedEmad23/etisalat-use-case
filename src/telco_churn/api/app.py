@@ -1,11 +1,13 @@
-"""FastAPI wiring: POST /chat, GET /health, bearer auth, error handler."""
+"""FastAPI wiring: POST /chat, GET /health, GET /demo, bearer auth, errors."""
 
 from __future__ import annotations
 
 import hmac
 import logging
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from telco_churn.api.errors import install_handlers, unauthorized
@@ -19,6 +21,7 @@ from telco_churn.serving.llm_client import LlmClient
 
 logger = logging.getLogger(__name__)
 _REDACTED_LOG = logging.getLogger("telco_churn.api.requests")
+_DEMO_HTML = Path(__file__).resolve().parent / "static" / "demo.html"
 
 
 class ChatIn(BaseModel):
@@ -86,10 +89,24 @@ def create_app(
         _log_turn(item.session_id, item.message)
         return _to_out(item.session_id, pipeline.handle(item.session_id, item.message))
 
+    @app.get("/demo", include_in_schema=False)
+    async def demo() -> FileResponse:
+        """Self-contained demo page — static shell, no embedded data or secrets."""
+        return FileResponse(
+            _DEMO_HTML,
+            media_type="text/html",
+            headers={"Cache-Control": "no-store"},
+        )
+
     @app.get("/health")
     async def health() -> dict[str, str]:
-        """Liveness + LLM reachability; no auth, never crashes on dead backend."""
+        """Liveness + LLM reachability + configured model identity; no auth."""
         reachable = resolved_llm.reachable()
-        return {"service": "ok", "llm": "reachable" if reachable else "unreachable"}
+        return {
+            "service": "ok",
+            "llm": "reachable" if reachable else "unreachable",
+            "llm_model": settings.llm_model,
+            "llm_backend": settings.llm_backend.value,
+        }
 
     return app
