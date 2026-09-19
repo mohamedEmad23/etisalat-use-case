@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from telco_churn.chat.loop import ChurnChatPipeline
+from telco_churn.chat.loop import ChurnChatPipeline, _canon_value, _grounded_number
 from telco_churn.chat.redact import redact
 from telco_churn.chat.schemas import FEATURE_NAMES, FeatureRequest, is_schema_candidate
 from telco_churn.model.train import fit_frame
@@ -155,3 +155,186 @@ class TestLoop:
             and "[PHONE]" in scrubbed
             and "[CUSTOMER_ID]" in scrubbed
         )
+
+
+class TestCanonFolding:
+    """Regression: the LLM copies user wording verbatim, so canon must fold it.
+
+    Two defects met here. (1) The extraction grammar restricted filter VALUES
+    to FEATURE_NAMES, so constrained decoding could only emit nonsense such as
+    {"Internet_Service": "Dual"} — fixed in llm_client.churn_schema. (2) Even
+    with a free-string grammar the copied words carry punctuation and context
+    ('Fiber-optic', 'a fiber optic customer'), so canon folds punctuation and
+    matches whole phrases, longest canon key first.
+    """
+
+    @pytest.mark.parametrize(
+        ("feature", "value", "canonical"),
+        [
+            ("Internet_Service", "Fiber-optic", "Fiber optic"),
+            ("Internet_Service", "fiber_optic", "Fiber optic"),
+            ("Internet_Service", "FIBER  OPTIC", "Fiber optic"),
+            ("Internet_Service", "fibre optic", "Fiber optic"),
+            ("Internet_Service", "DSL", "DSL"),
+            ("Contract", "month-to-month", "Month-to-month"),
+            ("Contract", "Month-to-month", "Month-to-month"),
+            ("Payment_Method", "credit card (automatic)", "Credit card (automatic)"),
+            ("Payment_Method", "bank transfer automatic", "Bank transfer (automatic)"),
+            ("Paperless_Billing", "yes!", "Yes"),
+            ("Online_Security", "No internet service", "No internet service"),
+            ("Internet_Service", "Fiber optic customer", "Fiber optic"),
+            ("Internet_Service", "a fiber-optic customer", "Fiber optic"),
+            ("Contract", "on a month-to-month contract", "Month-to-month"),
+            (
+                "Payment_Method",
+                "credit card automatic payment",
+                "Credit card (automatic)",
+            ),
+            ("Tech_Support", "yes please", "Yes"),
+            ("Tech_Support", "I am not subscribed", "No"),
+            ("Paperless_Billing", "no thanks", "No"),
+            ("Dual", "no phone service", "No phone service"),
+            ("tenure", "about 24 months", "24"),
+            ("Monthly_Charges", "$40.50 a month", "40.50"),
+        ],
+    )
+    def test_folds_punctuation_and_case(
+        self, feature: str, value: str, canonical: str
+    ) -> None:
+        assert _canon_value(feature, value) == canonical
+
+    def test_reported_fiber_optic_turn_now_predicts(self, artifact) -> None:
+        client = _client(
+            {
+                "target_features": ["Internet_Service", "Contract"],
+                "filters": {
+                    "Internet_Service": "Fiber-optic",
+                    "Contract": "month-to-month",
+                },
+                "out_of_scope": False,
+            }
+        )
+        pipeline = ChurnChatPipeline(artifact, client)
+        reply = pipeline.handle(
+            "s8", "Will a fiber-optic customer on a month-to-month contract churn?"
+        )
+        assert reply.payload is not None
+        assert pipeline._store.snapshot("s8") == {
+            "Internet_Service": "Fiber optic",
+            "Contract": "Month-to-month",
+        }
+
+    def test_contextual_phrase_emission_now_predicts(self, artifact) -> None:
+        """The grammar fix lets the model copy phrases; canon absorbs context."""
+        client = _client(
+            {
+                "target_features": ["Internet_Service", "Contract"],
+                "filters": {
+                    "Internet_Service": "Fiber optic customer",
+                    "Contract": "on a month-to-month contract",
+                },
+                "out_of_scope": False,
+            }
+        )
+        pipeline = ChurnChatPipeline(artifact, client)
+        reply = pipeline.handle(
+            "s9",
+            "Will a Fiber optic customer on a month-to-month contract churn?",
+        )
+        assert reply.payload is not None
+        assert pipeline._store.snapshot("s9") == {
+            "Internet_Service": "Fiber optic",
+            "Contract": "Month-to-month",
+        }
+
+
+class TestRepairRetry:
+    """A canon miss triggers exactly one menu-echoing repair attempt."""
+
+    def test_mis_keyed_filter_is_repaired(self, artifact) -> None:
+        bad: dict[str, Any] = {
+            "target_features": ["Online_Security"],
+            "filters": {"Monthly_Charges": "no online security"},
+            "out_of_scope": False,
+        }
+        good: dict[str, Any] = {
+            "target_features": ["Online_Security"],
+            "filters": {"Online_Security": "No"},
+            "out_of_scope": False,
+        }
+        transport = FakeExtractionTransport(candidates=[bad, good])
+        pipeline = ChurnChatPipeline(artifact, LlmClient(transport=transport))
+        reply = pipeline.handle(
+            "s10", "a customer without online security — will they churn?"
+        )
+        assert reply.payload is not None
+        assert pipeline._store.snapshot("s10") == {"Online_Security": "No"}
+        assert len(transport.calls) == 2
+
+    def test_repair_is_bounded_and_still_graceful(self, artifact) -> None:
+        bad: dict[str, Any] = {
+            "target_features": ["tenure"],
+            "filters": {"tenure": "weeks"},
+            "out_of_scope": False,
+        }
+        transport = FakeExtractionTransport(bad)
+        pipeline = ChurnChatPipeline(artifact, LlmClient(transport=transport))
+        reply = pipeline.handle("s11", "their tenure is measured in weeks")
+        assert reply.payload is None
+        assert "valid value for tenure" in reply.text
+        assert len(transport.calls) == 2  # initial attempt + one repair, no more
+
+
+class TestNumericGrounding:
+    """Fabricated numeric fillers must never enter the classifier profile.
+
+    The digits-only grammar for numeric slots turns a mis-slotted stray fact
+    into an invented filler ("0") that canonicalisation happily accepts; a
+    numeric filter is kept only when the user's own words carry the number.
+    """
+
+    @pytest.mark.parametrize(
+        ("value", "user_text", "expected"),
+        [
+            ("24", "with us for about 24 months", True),
+            ("40.50", "pays $40.50 a month", True),
+            ("40.5", "pays $40.50 a month", True),
+            ("0", "paying by mailed check, no numbers here", False),
+            ("0", "pays 40 a month", False),
+        ],
+    )
+    def test_grounding_rule(self, value: str, user_text: str, expected: bool) -> None:
+        assert _grounded_number(value, user_text) is expected
+
+    def test_ungrounded_number_is_dropped(self, artifact) -> None:
+        client = _client(
+            {
+                "target_features": ["Payment_Method", "Online_Security"],
+                "filters": {
+                    "Payment_Method": "Mailed check",
+                    "Monthly_Charges": "0",
+                },
+                "out_of_scope": False,
+            }
+        )
+        pipeline = ChurnChatPipeline(artifact, client)
+        reply = pipeline.handle(
+            "s12",
+            "a customer paying by mailed check without online security — "
+            "do they churn?",
+        )
+        assert reply.payload is not None
+        assert pipeline._store.snapshot("s12") == {"Payment_Method": "Mailed check"}
+
+    def test_grounded_number_is_kept(self, artifact) -> None:
+        client = _client(
+            {
+                "target_features": ["tenure"],
+                "filters": {"tenure": "24"},
+                "out_of_scope": False,
+            }
+        )
+        pipeline = ChurnChatPipeline(artifact, client)
+        reply = pipeline.handle("s13", "with us for about 24 months")
+        assert reply.payload is not None
+        assert pipeline._store.snapshot("s13") == {"tenure": "24"}

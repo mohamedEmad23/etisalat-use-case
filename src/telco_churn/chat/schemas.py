@@ -40,6 +40,42 @@ class FeatureName(StrEnum):
 
 FEATURE_NAMES: tuple[str, ...] = tuple(member.value for member in FeatureName)
 
+# Canonical value menus per categorical feature — the dataset's own literals.
+# The extraction grammar offers exactly these literals (constrained decoding),
+# so a filter value can never be fabricated; the repair prompt echoes them
+# back when a first attempt still lands in the wrong slot.
+FEATURE_VALUE_MENUS: dict[str, tuple[str, ...]] = {
+    "gender": ("Female", "Male"),
+    "Senior_Citizen": ("Yes", "No"),
+    "Is_Married": ("No", "Yes"),
+    "Dependents": ("No", "Yes"),
+    "Phone_Service": ("No", "Yes"),
+    "Dual": ("No", "No phone service", "Yes"),
+    "Internet_Service": ("DSL", "Fiber optic", "No"),
+    "Online_Security": ("No", "No internet service", "Yes"),
+    "Online_Backup": ("No", "No internet service", "Yes"),
+    "Device_Protection": ("No", "No internet service", "Yes"),
+    "Tech_Support": ("No", "No internet service", "Yes"),
+    "Streaming_TV": ("No", "No internet service", "Yes"),
+    "Streaming_Movies": ("No", "No internet service", "Yes"),
+    "Contract": ("Month-to-month", "One year", "Two year"),
+    "Paperless_Billing": ("No", "Yes"),
+    "Payment_Method": (
+        "Bank transfer (automatic)",
+        "Credit card (automatic)",
+        "Electronic check",
+        "Mailed check",
+    ),
+}
+
+# Numeric features stay free-form strings: the model copies the user's own
+# numeric words and the digits are extracted deterministically downstream.
+NUMERIC_FEATURE_NAMES: tuple[str, ...] = (
+    "tenure",
+    "Monthly_Charges",
+    "Total_Charges",
+)
+
 
 class FeatureRequest(BaseModel):
     """Schema of the single LLM output per turn — zero numeric fields.

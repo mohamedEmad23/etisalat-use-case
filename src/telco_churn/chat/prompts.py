@@ -7,9 +7,21 @@ object per turn (see openspec chat-pipeline delta).
 
 from __future__ import annotations
 
-from telco_churn.chat.schemas import FEATURE_NAMES
+import json
+
+from telco_churn.chat.schemas import FEATURE_NAMES, FEATURE_VALUE_MENUS
 
 SCHEMA_HINT = '{"target_features": [...], "filters": {}, "out_of_scope": false}'
+
+_MENU_LINES = "\n".join(
+    f"   {name}: {' | '.join(FEATURE_VALUE_MENUS[name])}"
+    for name in FEATURE_NAMES
+    if name in FEATURE_VALUE_MENUS
+)
+_MENU_LINES += (
+    "\n   tenure / Monthly_Charges / Total_Charges: bare digits only "
+    "(examples: 24, 40.50) — no words, no units, no currency symbols"
+)
 
 _EXTRACT_SYSTEM = """You are the extraction layer of a churn-prediction chatbot.
 Your ONLY job is to convert the user's latest message into ONE JSON object.
@@ -19,11 +31,15 @@ Rules:
    {SCHEMA_HINT}
 2. "target_features" is a list from this closed vocabulary only:
    {VOCABULARY}
-3. "filters" may copy the user's own categorical words (e.g. "Month-to-month")
-   as plain strings. NEVER write numbers, never transform what the user said.
-4. Numeric facts (tenure months, charges) belong in filters only as the
-   user's exact words; the system reads numbers from its own data, not from
-   you.
+3. "filters" restate facts the user actually stated. Each categorical feature
+   accepts ONLY the values listed below — pick the closest one. Never invent a
+   filter the user did not state, and never transform what the user said.
+   Allowed values:
+{MENUS}
+4. Numeric facts (tenure months, charges) go into their numeric slot as
+   bare digits (e.g. "about 24 months" becomes 24; "$40.50" becomes 40.50).
+   Numeric slots never contain words or units; the system reads numbers
+   from its own data, not from you.
 5. If the message is not about a customer churn profile (weather, jokes,
    math homework), set "out_of_scope": true and leave the lists empty.
 6. Output ONLY the JSON object. No prose, no markdown, no explanations.
@@ -47,8 +63,10 @@ Assistant: {{"target_features": [], "filters": {{}}, "out_of_scope": true}}
 Remember: one JSON object only; unknown feature names or any new numeric
 field are rejected."""
 
-_EXTRACT_SYSTEM = _EXTRACT_SYSTEM.replace("{SCHEMA_HINT}", SCHEMA_HINT).replace(
-    "{VOCABULARY}", ", ".join(FEATURE_NAMES)
+_EXTRACT_SYSTEM = (
+    _EXTRACT_SYSTEM.replace("{SCHEMA_HINT}", SCHEMA_HINT)
+    .replace("{VOCABULARY}", ", ".join(FEATURE_NAMES))
+    .replace("{MENUS}", _MENU_LINES)
 )
 
 _RETRY_SYSTEM = (
@@ -86,6 +104,42 @@ def retry_messages(user_text: str) -> list[dict[str, str]]:
     return [
         {"role": "system", "content": _RETRY_SYSTEM},
         {"role": "user", "content": user_text},
+    ]
+
+
+_REPAIR_SYSTEM = """Your previous extraction put values in slots they cannot map to.
+Re-emit the SAME facts as ONE JSON object of the shape:
+{SCHEMA_HINT}
+
+Rules:
+- Use ONLY the allowed values below; numeric slots take bare digits only.
+- Drop any filter the user did not actually state; never invent features.
+- Leave out anything you cannot map.
+
+Allowed values:
+{MENUS}
+Output ONLY the JSON object."""
+
+_REPAIR_SYSTEM = _REPAIR_SYSTEM.replace("{SCHEMA_HINT}", SCHEMA_HINT).replace(
+    "{MENUS}", _MENU_LINES
+)
+
+
+def repair_messages(
+    user_text: str, previous: dict[str, object], problems: list[str]
+) -> list[dict[str, str]]:
+    """Build chat messages for the bounded repair retry after a canon miss."""
+    return [
+        {"role": "system", "content": _REPAIR_SYSTEM},
+        {
+            "role": "user",
+            "content": (
+                f"User said: {user_text}\n"
+                f"Your previous extraction: {json.dumps(previous)}\n"
+                f"Invalid slots: {'; '.join(problems)}\n"
+                "Re-emit the corrected JSON now."
+            ),
+        },
     ]
 
 

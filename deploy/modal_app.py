@@ -5,7 +5,7 @@ Adopted runtime (ADR-0001 amendment): a llama.cpp serving daemon (Ollama) with t
 as the API; model weights persist in a platform volume so cold starts never
 re-download them. The vLLM runtime is the documented VARIANT for concurrent
 multi-user serving (see docs/adr/0001-modal-serverless-over-free-tier-vms.md and
-deploy/runpod-fallback.md) — it stays a documented switch, not the default path.
+docs/runpod-fallback.md) — it stays a documented switch, not the default path.
 
 READY, NOT EXERCISED: this module is reviewed and parsed but not deployed — a GPU
 function requires a Modal account with a valid payment method on file, and the

@@ -146,17 +146,26 @@ API3 (two-field request surface), API4 (rate limiter + timeouts), API5 (two rout
 docs disabled), API8 (fail-fast token, generic errors; non-root container in Phase 5),
 API10 (single grammar-constrained LLM seam), plus log-hygiene row verified by test.
 
-### 2.9 `deploy/` — compose stack (task 5.5)
+### 2.9 `deploy/` — compose stack (task 5.5; hardened 2026-09-19)
 
-- `deploy/Dockerfile`: `python:3.13-slim`, non-root user `telco`, `uv sync --frozen
-  --no-dev`, uvicorn `telco_churn.api.app:app` on port 8000.
-- `deploy/docker-compose.yml`: `ollama` service (volume for models, healthcheck
-  `ollama ls`) + `api` service (env: `TELCO_API_BEARER_TOKEN`, `TELCO_LLM_BASE_URL=http://ollama:11434/v1`,
-  `TELCO_LLM_BACKEND=ollama`, `TELCO_API_HOST=0.0.0.0`; read-only mount of `../runs`;
-  `depends_on: ollama service_healthy`). Header comment carries a curl smoke-test
-  using a `${TELCO_API_BEARER_TOKEN}` reference (gitleaks-safe). Validated with
-  `docker compose -f deploy/docker-compose.yml config --quiet`.
-- `deploy/.dockerignore`: keeps the image lean (no data/, docs/, runs/, .venv, .git…).
+- `deploy/Dockerfile`: `python:3.13-slim` (digest-pinned base), uv binary digest-pinned,
+  non-root user `telco`, `uv sync --locked --no-dev --no-install-project` with a 5-attempt
+  retry loop, uvicorn factory `telco_churn.api.app:create_app --factory` on port 8000.
+- `deploy/docker-compose.yml` (default): API-only stack served by the **host** Ollama via
+  `host.docker.internal:11434` (zero model downloads). The bearer token is read from the
+  repo-root `.env` through `env_file` — compose interpolation cannot see it (the project dir
+  is `deploy/`) and `environment` entries would override it; the API binds to loopback
+  (`127.0.0.1:8000`); `../runs` and `../data` are read-only mounts; rootfs is read-only with a
+  `/tmp` tmpfs; `cap_drop: [ALL]`, `no-new-privileges`, log rotation, and resource limits sized
+  for the Docker Desktop VM; the healthcheck uses stdlib urllib (no curl in the image).
+- `deploy/docker-compose.bundled-llm.yml` (overlay, optional): adds a digest-pinned `ollama`
+  container — `expose` only, never a host publish, because a host-native Ollama owns
+  11434 — plus a one-shot `model-init` that pulls `qwen3:4b-instruct-2507-q4_K_M` into the
+  named volume `telco-churn-ollama-models`; the API then waits for
+  `service_completed_successfully` before serving.
+- `deploy/Dockerfile.dockerignore` (not `deploy/.dockerignore` — Docker reads the ignore file
+  named after the Dockerfile): keeps the image lean (no data/, docs/, runs/, .venv, .git…).
+- Both configs validate with `docker compose -f … config -q` (base and overlay).
 
 ## 3. Measured performance (honest numbers)
 
@@ -187,9 +196,11 @@ Full numbers in `docs/perf-report.md` (hardware stated) and `runs/perf_report.js
 
 ## 5. Deferred to later phases
 
-- Full end-to-end image build + `docker compose up` (multi-GB Ollama model pull) —
-  user-run; compose config validated statically.
-- GPU perf re-measurement and Modal/RunPod deployment — Phase 5/6 (`p5/deployment`
-  tasks 6.1–6.6) with the same `perf.py` harness.
+- Full end-to-end image build + `docker compose up` — **resolved 2026-09-19**: live
+  build, healthy stack, and four authenticated `/chat` probes matched the expected
+  deterministic outputs (see `docs/ops-log.md`, hardening pass 2).
+- GPU perf re-measurement and Modal/RunPod deployment — still deferred (no GPU
+  account exercised); `deploy/modal_app.py` is ready-not-exercised and the harness
+  is ready in `docs/perf-report.md`.
 - Frontend/UI — not in the current OpenSpec change (discussed separately with the
   user; see the phase-4 Q&A answer).

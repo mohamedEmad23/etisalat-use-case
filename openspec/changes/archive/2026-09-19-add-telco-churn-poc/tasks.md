@@ -2,10 +2,10 @@
 
 ## 1. Phase 0 — Scaffolding
 
-- [ ] 1.1 Create `etisalat-use-case/` uv project (pyproject.toml, src layout, Python 3.12+); verify `uv sync` and `uv run pytest` succeed with zero collected tests
-- [ ] 1.2 Add dependencies (polars, scikit-learn, lightgbm, xgboost, optuna, shap, fastapi, uvicorn, mlflow, pytest, httpx); verify import smoke test passes
-- [ ] 1.3 Create module skeleton `src/telco_churn/{data,model,chat,serving,api}`, `tests/{unit,eval,integration}`, `docs/`, `deploy/`; verify package imports and tree matches design.md layout
-- [ ] 1.4 Implement env-driven config (LLM base URL, model id, bearer token with fail-fast when unset); verify unit test asserts startup failure without token
+- [x] 1.1 Create `etisalat-use-case/` uv project (pyproject.toml, src layout, Python 3.12+); verify `uv sync` and `uv run pytest` succeed with zero collected tests
+- [x] 1.2 Add dependencies (polars, scikit-learn, lightgbm, xgboost, optuna, shap, fastapi, uvicorn, mlflow, pytest, httpx); verify import smoke test passes
+- [x] 1.3 Create module skeleton `src/telco_churn/{data,model,chat,serving,api}`, `tests/{unit,eval,integration}`, `docs/`, `deploy/`; verify package imports and tree matches design.md layout
+- [x] 1.4 Implement env-driven config (LLM base URL, model id, bearer token with fail-fast when unset); verify unit test asserts startup failure without token
 
 ## 2. Phase 1 — Data pipeline (`telco-churn/data-pipeline`)
 
@@ -55,5 +55,5 @@
 
 ## 7. Final verification
 
-- [ ] 7.1 Full unit suite green in CI mode (mocked LLM, no GPU): `uv run pytest tests/unit -q` passes with zero warnings
-- [ ] 7.2 `openspec validate --changes` green and every spec scenario traceable to at least one test or delivered artifact
+- [x] 7.1 Full unit suite green in CI mode (mocked LLM, no GPU): `uv run pytest tests/unit -q` passes with zero warnings
+- [x] 7.2 `openspec validate --changes` green and every spec scenario traceable to at least one test or delivered artifact

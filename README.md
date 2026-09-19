@@ -21,9 +21,10 @@ prediction payload — the LLM never generates numbers.
 
 ## Quickstart (local demo stack)
 
-Prerequisites: Python 3.13 via [uv](https://docs.astral.sh/uv/), Docker (for the compose stack),
-and Ollama running locally (`ollama serve` — needed only for the bare path above; the compose
-stack runs its own Ollama container).
+Prerequisites: Python 3.13 via [uv](https://docs.astral.sh/uv/), Docker, and — for the default
+compose stack — Ollama running locally (`ollama serve`); the stack reaches it via
+`host.docker.internal:11434`, so no model downloads are needed. A self-contained alternative
+runs its own Ollama container instead (see below).
 
 ```sh
 uv sync                                   # create .venv
@@ -34,22 +35,31 @@ TELCO_API_BEARER_TOKEN=local-demo-token \
 .venv/bin/python -m uvicorn telco_churn.api.app:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
-Or one-command compose:
+Or the one-command compose stack (API in Docker, LLM served by your host Ollama):
 
 ```sh
-docker compose -f deploy/docker-compose.yml up --build
+cp .env.example .env                      # then set a real TELCO_API_BEARER_TOKEN in .env
+docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-First run: a one-shot `model-init` service pulls the `qwen3:4b-instruct-2507-q4_K_M` weights
-(a multi-GB, one-time download; later runs are delta-safe no-ops), and the API service waits
-for it before serving — `up --build` alone yields a working `/chat`.
-
-Then `GET /health` is open, and every other call needs the bearer header:
+Prefer a fully containerized LLM? Layer the bundled-LLM overlay — it adds its own Ollama
+container plus a one-shot `model-init` that pulls the `qwen3:4b-instruct-2507-q4_K_M` weights
+into a persistent named volume (multi-GB one-time download; later runs are delta-safe):
 
 ```sh
-curl http://localhost:8000/health
-curl -X POST http://localhost:8000/chat \
-  -H "Authorization: Bearer $TELCO_API_BEARER_TOKEN" \
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.bundled-llm.yml up -d --build
+```
+
+The API binds to loopback only (`127.0.0.1:8000`).
+
+Then `GET /health` is open, and every other call needs the bearer header (read the token from
+`.env` — it is not exported into your shell):
+
+```sh
+TOKEN=$(grep -E '^TELCO_API_BEARER_TOKEN=' .env | cut -d= -f2- | tr -d '"')
+curl -s http://127.0.0.1:8000/health
+curl -s -X POST http://127.0.0.1:8000/chat \
+  -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"session_id": "s1", "message": "Will a fiber-optic customer on a month-to-month contract churn?"}'
 ```

@@ -12,8 +12,25 @@ from typing import Any
 
 import httpx
 
-from telco_churn.chat.schemas import FEATURE_NAMES
+from telco_churn.chat.schemas import (
+    FEATURE_NAMES,
+    FEATURE_VALUE_MENUS,
+    NUMERIC_FEATURE_NAMES,
+)
 from telco_churn.config import get_settings
+
+# Digits only: keeps the model from dumping stray text ("no", "fiber optic")
+# into numeric slots where it would fail canonicalisation at runtime.
+NUMERIC_PATTERN = r"^[0-9]+(\.[0-9]+)?$"
+
+
+def _filter_slot(name: str) -> dict[str, Any]:
+    """Slot spec for one filter: dataset literals for categoricals (the model
+    can only pick real values), a digits-only pattern for numerics (stray text
+    is unrepresentable in the grammar)."""
+    if name in NUMERIC_FEATURE_NAMES:
+        return {"type": "string", "pattern": NUMERIC_PATTERN}
+    return {"enum": list(FEATURE_VALUE_MENUS[name])}
 
 
 def churn_schema() -> dict[str, Any]:
@@ -26,12 +43,15 @@ def churn_schema() -> dict[str, Any]:
                 "type": "array",
                 "items": {"type": "string", "enum": list(FEATURE_NAMES)},
             },
+            # Categorical values are the dataset's own literals (menu slots)
+            # and numeric values must match a digits-only pattern: constrained
+            # decoding can only emit a real value in a real slot, so fabricated
+            # strings like {"Monthly_Charges": "no online security"} become
+            # unrepresentable.
             "filters": {
                 "type": "object",
-                "additionalProperties": {
-                    "type": "string",
-                    "enum": list(FEATURE_NAMES),
-                },
+                "additionalProperties": False,
+                "properties": {name: _filter_slot(name) for name in FEATURE_NAMES},
             },
             "out_of_scope": {"type": "boolean"},
         },
@@ -112,18 +132,37 @@ class LlmClient:
 
 
 class FakeExtractionTransport(httpx.BaseTransport):
-    """Test double returning a canned extraction JSON (no network)."""
+    """Test double returning canned extraction JSONs (no network).
+
+    ``candidate`` scripts a single reply; ``candidates`` scripts a sequence
+    (the repair retry consumes the next entry; the last one repeats once the
+    queue is exhausted).
+    """
 
     def __init__(
         self,
-        candidate: dict[str, Any],
+        candidate: dict[str, Any] | None = None,
+        *,
+        candidates: list[dict[str, Any]] | None = None,
     ) -> None:
+        if candidate is None and not candidates:
+            raise ValueError("provide candidate or candidates")
         self.candidate = candidate
+        self._queue = list(candidates) if candidates else None
         self.calls: list[dict[str, Any]] = []
+
+    def _next_candidate(self) -> dict[str, Any]:
+        if self._queue:
+            if len(self._queue) > 1:
+                return self._queue.pop(0)
+            return self._queue[0]
+        if self.candidate is None:  # guarded in __init__
+            raise RuntimeError("FakeExtractionTransport has no candidate")
+        return self.candidate
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         self.calls.append({"url": str(request.url)})
-        content = json.dumps(self.candidate)
+        content = json.dumps(self._next_candidate())
         return httpx.Response(
             200,
             json={"choices": [{"message": {"role": "assistant", "content": content}}]},

@@ -108,6 +108,53 @@ Verification of this pass: `docker compose config --quiet` → OK (client-side);
 correct); `docker compose config --quiet` → OK. Full compose stack (with model pull) is the
 remaining user-run step.
 
+8. **Host-port collision on 11434** — the compose stack published `11434:11434`, but a
+   host-native Ollama already owns `127.0.0.1:11434`; `docker compose up` could never start
+   the LLM service ("port is already allocated"). Fixed by never publishing the LLM port:
+   the API reaches a bundled Ollama over the compose network and a host Ollama through
+   `host.docker.internal:11434`; the port is documented with `expose` for inspection only.
+9. **Compose interpolation cannot see the repo-root `.env`** — the compose project directory
+   is `deploy/`, so `${TELCO_API_BEARER_TOKEN}` interpolated to a blank string and the API
+   crashed at startup (min length 8). Fixed by reading repo-root `.env` via `env_file`
+   (a token under `environment` would override `env_file` — it must not live there), plus a
+   committed `.env.example`. Verified with `docker compose config -q` and a live auth probe
+   (401 without a token, 200 with).
+10. **The extraction grammar forbade the values it needed** — the LLM `filters` schema
+    restricted every filter VALUE to the feature-name enum, so grammar-constrained decoding
+    could only emit nonsense (`{"Internet_Service": "Dual"}`) and every chat turn ended in
+    "could not read a valid value". Fixed in five layers: free-string filter values;
+    whole-phrase folding in the canonicaliser (`Fiber-optic` → `Fiber optic`); per-feature
+    value menus for categoricals (dataset literals only) plus a digits-only pattern for
+    numeric slots; one bounded menu-echoing repair retry; and numeric grounding — numbers
+    absent from the user's own message are dropped rather than silently fabricated.
+    Regression evidence: `runs/extraction_suite_report.json` regenerated on the hardened
+    pipeline — 23/23 cases, schema validity 1.0, slot accuracy 1.0.
+
+**Incident (2026-09-19): wedged image store during the first bundled-LLM attempt.** Pulling
+the ~6 GB `ollama/ollama` image while the host disk sat at 97% left layer extraction crawling
+at byte level (zero `Pull complete`; `docker images` hanging). A `docker desktop restart`
+cleared it; the user then wiped images/volumes/build-cache (~6 GB reclaimed) before the
+successful run. Lesson: keep ≥15 GB host headroom before multi-GB pulls — the default
+compose path no longer needs the ollama image at all.
+
+**Verification (2026-09-19, `p5/deployment`):** image build ✓ (cold uv cache);
+`docker compose -f deploy/docker-compose.yml up -d` → api healthy on `127.0.0.1:8000`;
+`/health` = `{"service":"ok","llm":"reachable"}`; four authenticated `/chat` probes matched
+the expected deterministic outputs (0.4094 / 0.1362 / 0.2877 / 0.4094 with the expected
+`Profile used:` lines); `pytest tests/unit -q` → 93 passed, zero warnings; extraction suite
+23/23; `pre-commit` all hooks green; `openspec validate --changes` green. The
+`add-telco-churn-poc` change was synced to `openspec/specs/` (five capability specs) and
+archived (see `openspec/changes/archive/2026-09-19-add-telco-churn-poc/`).
+
+**Task 7.2 — scenario → evidence traceability:** `data-pipeline` →
+`tests/unit/test_data_pipeline.py` + `docs/data-mismatches.md`; `churn-model` →
+`tests/unit/test_churn_model.py` + `runs/train_report.json` + `docs/perf-report.md`;
+`chat-pipeline` → `tests/unit/test_chat_pipeline.py` + `tests/unit/test_llm_client.py` +
+`tests/eval/test_extraction_suite.py` + `runs/extraction_suite_report.json`; `chat-api` →
+`tests/unit/test_chat_api.py` + `docs/security-checklist.md` + `runs/perf_report.json`;
+`deployment` → `deploy/` + `README.md` + `docs/architecture.md` + `docs/runpod-fallback.md` +
+`docs/adr/0001-modal-serverless-over-free-tier-vms.md` + this log.
+
 ## Open operational items
 
 - GPU latency + VRAM-headroom measurement: deferred (explicit user decision) until a GPU runtime

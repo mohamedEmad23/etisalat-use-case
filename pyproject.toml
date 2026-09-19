@@ -32,6 +32,13 @@ addopts = "-p no:cacheprovider"
 markers = [
     "eval_llm: opt-in extraction eval requiring a reachable local Ollama endpoint (skips otherwise)",
 ]
+# Task 7.1 requires a zero-warning suite. These two are third-party noise, not
+# ours: silence them by exact message so any NEW warning still surfaces; drop
+# the entries when anyio/starlette or shap are upgraded.
+filterwarnings = [
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+    "ignore:LightGBM binary classifier with TreeExplainer shap values output has changed:UserWarning",
+]
 
 [dependency-groups]
 dev = [
