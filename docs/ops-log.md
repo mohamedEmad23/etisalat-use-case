@@ -161,3 +161,13 @@ archived (see `openspec/changes/archive/2026-09-19-add-telco-churn-poc/`).
   is exercised; harness and budget table ready in `docs/perf-report.md`.
 - Modal account/secret creation and staged deploy: user's choice; `modal_app.py` is ready-not-exercised.
 - RunPod 3090 live exercise: deferred (runbook reviewed).
+
+## 2026-09-19 — docs consolidation (post-acceptance)
+
+- `docs/architecture.md` retired: its content (system shape, data flow, deployment topologies,
+  module seams, control planes) now lives in `README.md` → *Architecture*. References to the old
+  path in earlier entries above (and in the archived `add-telco-churn-poc` change) are historical
+  and intentionally left as-is.
+- `README.md` rebuilt as the single front door: architecture diagram (`docs/img/architecture.png`),
+  `/demo` answer screenshots (`docs/img/demo-answer-{1,2}.png`), run paths (host Ollama / bundled
+  overlay / bare metal), model-install note for `qwen3:4b-instruct-2507-q4_K_M`, API examples.
